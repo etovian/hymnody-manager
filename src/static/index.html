@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Hymnody Manager & Worship Planner</title>
+  <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+  <div class="app-container">
+
+    <!-- Header & Mode Switcher -->
+    <header class="header shadow">
+      <div class="brand">
+        <div class="brand-logo">🎼</div>
+        <div>
+          <h1 class="title">Hymnody Manager</h1>
+          <p class="subtitle">Lutheran Worship Planner & Sanctuary Audio Engine</p>
+        </div>
+      </div>
+      <div class="view-tabs">
+        <button id="btn-desktop-view" class="tab-btn active" onclick="switchView('desktop')">💻 Desktop Planner</button>
+        <button id="btn-mobile-view" class="tab-btn" onclick="switchView('mobile')">📱 Sanctuary Mobile Mode</button>
+      </div>
+    </header>
+
+    <!-- ================= DESKTOP WORSHIP PLANNER VIEW ================= -->
+    <main id="desktop-view" class="main-grid">
+
+      <!-- LEFT: HYMN CATALOG SEARCH -->
+      <section class="card flex-col h-650">
+        <div class="card-header">
+          <h2>📖 Hymnal Catalog</h2>
+          <span id="catalog-count" class="badge">0 Tracks</span>
+        </div>
+
+        <div class="search-box">
+          <input type="text" id="search-input" placeholder="Search hymn #, title, or keyword..." oninput="handleSearch()">
+        </div>
+
+        <div class="filter-pills" id="season-filters">
+          <button class="pill active" onclick="filterSeason('')">All</button>
+          <button class="pill" onclick="filterSeason('Advent')">Advent</button>
+          <button class="pill" onclick="filterSeason('Christmas')">Christmas</button>
+          <button class="pill" onclick="filterSeason('Lent')">Lent</button>
+          <button class="pill" onclick="filterSeason('Easter')">Easter</button>
+          <button class="pill" onclick="filterSeason('Liturgical')">Liturgical</button>
+        </div>
+
+        <div class="hymn-list" id="hymn-list-container">
+          <!-- Dynamically populated -->
+        </div>
+      </section>
+
+      <!-- RIGHT: SERVICE PLANNER BUILDER -->
+      <section class="card flex-col h-650">
+        <div class="service-header border-b">
+          <div class="flex-between mb-2">
+            <div>
+              <h2 id="service-title-display">Service Plan: Loading...</h2>
+              <p id="service-subtitle-display" class="subtitle">Date: -- | Setting: --</p>
+            </div>
+            <div class="btn-group">
+              <button class="btn btn-emerald" onclick="exportMobileZip()">📦 Export Mobile Zip</button>
+              <button class="btn btn-primary" onclick="createNewService()">➕ New Service</button>
+            </div>
+          </div>
+
+          <div class="preset-selector">
+            <label>Divine Service Setting:</label>
+            <select id="preset-select" onchange="changeSettingPreset()">
+              <option value="DS2" selected>Divine Service Setting Two (DS2)</option>
+              <option value="DS1">Divine Service Setting One (DS1)</option>
+              <option value="DS3">Divine Service Setting Three (DS3)</option>
+              <option value="DS4">Divine Service Setting Four (DS4)</option>
+              <option value="DS5">Divine Service Setting Five (DS5)</option>
+              <option value="Matins">Matins</option>
+              <option value="Vespers">Vespers</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="service-items-list" id="service-items-container">
+          <!-- Dynamically populated -->
+        </div>
+      </section>
+
+    </main>
+
+    <!-- ================= SANCTUARY MOBILE MODE VIEW ================= -->
+    <section id="mobile-view" class="mobile-container hidden">
+      <div class="mobile-card">
+        <div class="mobile-header">
+          <span class="sanctuary-badge">📶 Sanctuary Bluetooth Engine</span>
+          <h2 id="mobile-service-title">Sunday Worship Service</h2>
+          <p id="mobile-service-subtitle" class="subtitle">Divine Service Setting Two</p>
+        </div>
+
+        <div class="now-playing-box">
+          <span class="track-status">NOW PLAYING</span>
+          <h3 id="mobile-track-title">Select a track to start</h3>
+          <p id="mobile-track-subtitle" class="subtitle">--</p>
+          
+          <div class="progress-bar-container">
+            <div id="mobile-progress-bar" class="progress-bar-fill" style="width: 0%;"></div>
+          </div>
+          <div class="flex-between time-display">
+            <span id="mobile-time-current">0:00</span>
+            <span id="mobile-time-total">0:00</span>
+          </div>
+        </div>
+
+        <div class="giant-controls-grid">
+          <button class="control-btn" onclick="playPrevTrack()">
+            <span class="icon">⏮</span>
+            <span class="label">PREVIOUS</span>
+          </button>
+
+          <button class="control-btn btn-main" onclick="togglePlayPause()">
+            <span id="mobile-play-icon" class="icon">▶</span>
+            <span id="mobile-play-label" class="label font-bold">PLAY</span>
+          </button>
+
+          <button class="control-btn" onclick="playNextTrack()">
+            <span class="icon">⏭</span>
+            <span class="label">NEXT TRACK</span>
+          </button>
+        </div>
+
+        <div class="mobile-track-list-section">
+          <h4>Service Playlist (Tap to Jump)</h4>
+          <div id="mobile-playlist-container" class="mobile-playlist">
+            <!-- Dynamically populated -->
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- PERSISTENT AUDIO PLAYER BAR -->
+    <footer id="desktop-player-bar" class="player-bar">
+      <div class="player-left">
+        <div class="player-icon">🎵</div>
+        <div>
+          <div class="track-status">NOW PLAYING</div>
+          <div id="desktop-track-title" class="player-track-title">No track selected</div>
+        </div>
+      </div>
+
+      <div class="player-center">
+        <div class="controls-row">
+          <button class="icon-btn" onclick="playPrevTrack()">⏮</button>
+          <button id="desktop-play-btn" class="play-circle-btn" onclick="togglePlayPause()">▶</button>
+          <button class="icon-btn" onclick="playNextTrack()">⏭</button>
+        </div>
+        <div class="scrubber-row">
+          <span id="desktop-time-current" class="time-text">0:00</span>
+          <input type="range" id="desktop-scrubber" value="0" min="0" max="100" onchange="seekAudio(this.value)">
+          <span id="desktop-time-total" class="time-text">0:00</span>
+        </div>
+      </div>
+
+      <div class="player-right">
+        <span class="time-text">Vol</span>
+        <input type="range" id="volume-slider" min="0" max="1" step="0.05" value="0.8" oninput="setVolume(this.value)">
+      </div>
+    </footer>
+
+  </div>
+
+  <audio id="main-audio-player"></audio>
+  <script src="/static/app.js"></script>
+</body>
+</html>
