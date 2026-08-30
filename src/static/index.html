@@ -9,7 +9,7 @@
 <body>
   <div class="app-container">
 
-    <!-- Header & Mode Switcher -->
+    <!-- Header & View Switcher -->
     <header class="header shadow">
       <div class="brand">
         <div class="brand-logo">🎼</div>
@@ -27,10 +27,10 @@
     <!-- ================= DESKTOP WORSHIP PLANNER VIEW ================= -->
     <main id="desktop-view" class="main-grid">
 
-      <!-- LEFT: HYMN CATALOG SEARCH -->
+      <!-- LEFT COLUMN: HYMN CATALOG SEARCH (40% width) -->
       <section class="card flex-col h-650">
         <div class="card-header">
-          <h2>📖 Hymnal Catalog</h2>
+          <h2 style="font-size: 1.1rem; font-weight: 700;">📖 Hymnal Catalog</h2>
           <span id="catalog-count" class="badge">0 Tracks</span>
         </div>
 
@@ -52,12 +52,12 @@
         </div>
       </section>
 
-      <!-- RIGHT: SERVICE PLANNER BUILDER -->
+      <!-- RIGHT COLUMN: SERVICE PLANNER BUILDER (60% width) -->
       <section class="card flex-col h-650">
-        <div class="service-header border-b">
-          <div class="flex-between mb-2">
+        <div class="service-header">
+          <div class="flex-between mb-2 flex-wrap gap-2">
             <div>
-              <h2 id="service-title-display">Service Plan: Loading...</h2>
+              <h2 id="service-title-display" style="font-size: 1.15rem; font-weight: 700;">Service Plan: Loading...</h2>
               <p id="service-subtitle-display" class="subtitle">Date: -- | Setting: --</p>
             </div>
             <div class="btn-group">
@@ -67,7 +67,7 @@
           </div>
 
           <div class="preset-selector">
-            <label>Divine Service Setting:</label>
+            <label style="font-weight: 600;">Divine Service Setting:</label>
             <select id="preset-select" onchange="changeSettingPreset()">
               <option value="DS2" selected>Divine Service Setting Two (DS2)</option>
               <option value="DS1">Divine Service Setting One (DS1)</option>
@@ -91,22 +91,22 @@
     <section id="mobile-view" class="mobile-container hidden">
       <div class="mobile-card">
         <div class="mobile-header">
-          <span class="sanctuary-badge">📶 Sanctuary Bluetooth Engine</span>
-          <h2 id="mobile-service-title">Sunday Worship Service</h2>
+          <span class="sanctuary-badge mb-2">📶 Sanctuary Bluetooth Engine</span>
+          <h2 id="mobile-service-title" style="font-size: 1.5rem; font-weight: 800; color: white;">Sunday Worship Service</h2>
           <p id="mobile-service-subtitle" class="subtitle">Divine Service Setting Two</p>
         </div>
 
         <div class="now-playing-box">
           <span class="track-status">NOW PLAYING</span>
-          <h3 id="mobile-track-title">Select a track to start</h3>
+          <h3 id="mobile-track-title" style="font-size: 1.35rem; font-weight: 700; color: white; margin: 0.5rem 0;">Select a track to start</h3>
           <p id="mobile-track-subtitle" class="subtitle">--</p>
           
-          <div class="progress-bar-container">
-            <div id="mobile-progress-bar" class="progress-bar-fill" style="width: 0%;"></div>
+          <div class="progress-bar-container" style="width: 100%; background: #334155; height: 8px; border-radius: 9999px; overflow: hidden; margin-top: 1rem;">
+            <div id="mobile-progress-bar" style="background: #3b82f6; height: 100%; width: 0%; border-radius: 9999px;"></div>
           </div>
-          <div class="flex-between time-display">
-            <span id="mobile-time-current">0:00</span>
-            <span id="mobile-time-total">0:00</span>
+          <div class="flex-between time-display" style="margin-top: 0.375rem;">
+            <span id="mobile-time-current" class="time-text">0:00</span>
+            <span id="mobile-time-total" class="time-text">0:00</span>
           </div>
         </div>
 
@@ -127,8 +127,8 @@
           </button>
         </div>
 
-        <div class="mobile-track-list-section">
-          <h4>Service Playlist (Tap to Jump)</h4>
+        <div class="mobile-track-list-section" style="text-align: left;">
+          <h4 style="font-size: 0.75rem; font-weight: 700; color: #94a3b8; text-transform: uppercase; margin-bottom: 0.5rem;">Service Playlist (Tap to Jump)</h4>
           <div id="mobile-playlist-container" class="mobile-playlist">
             <!-- Dynamically populated -->
           </div>
@@ -140,7 +140,7 @@
     <footer id="desktop-player-bar" class="player-bar">
       <div class="player-left">
         <div class="player-icon">🎵</div>
-        <div>
+        <div style="overflow: hidden;">
           <div class="track-status">NOW PLAYING</div>
           <div id="desktop-track-title" class="player-track-title">No track selected</div>
         </div>
@@ -161,7 +161,7 @@
 
       <div class="player-right">
         <span class="time-text">Vol</span>
-        <input type="range" id="volume-slider" min="0" max="1" step="0.05" value="0.8" oninput="setVolume(this.value)">
+        <input type="range" id="volume-slider" min="0" max="1" step="0.05" value="0.8" oninput="setVolume(this.value)" style="accent-color: #3b82f6; cursor: pointer; width: 80px;">
       </div>
     </footer>
 
