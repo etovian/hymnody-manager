@@ -141,3 +141,32 @@ def list_services(db_path="hymnody.db"):
         cursor.execute("SELECT * FROM services ORDER BY service_date DESC, id DESC")
         rows = cursor.fetchall()
         return [dict(r) for r in rows]
+
+def validate_service_rubric(service_id, db_path="hymnody.db"):
+    srv = get_service_details(service_id, db_path=db_path)
+    if not srv:
+        return {'is_conformant': False, 'issues': ['Service not found'], 'setting': 'DS2'}
+        
+    setting = srv.get('setting_preset', 'DS2')
+    expected_slots = PRESETS.get(setting, PRESETS["DS2"])
+    actual_items = srv.get('items', [])
+    
+    issues = []
+    for slot_name, match_term, item_title in expected_slots:
+        if match_term != "HYMN_SLOT":
+            found = False
+            for item in actual_items:
+                title = item.get('item_title', '').lower()
+                slot = item.get('slot_name', '').lower()
+                target = slot_name.lower()
+                if target in slot or target in title:
+                    found = True
+                    break
+            if not found:
+                issues.append(f"Missing required canticle: {slot_name} ({item_title})")
+                
+    return {
+        'is_conformant': len(issues) == 0,
+        'issues': issues,
+        'setting': setting
+    }

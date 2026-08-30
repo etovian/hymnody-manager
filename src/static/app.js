@@ -5,6 +5,9 @@ let currentService = null;
 let activeTrackIndex = -1;
 let isPlaying = false;
 let activeSeason = '';
+let draggedHymnId = null;
+let draggedItemIndex = null;
+let currentRubricStatus = null;
 
 const audioPlayer = document.getElementById('main-audio-player');
 
@@ -73,17 +76,93 @@ function renderHymnList(hymns) {
   hymns.forEach(h => {
     const item = document.createElement('div');
     item.className = 'hymn-item';
+    item.setAttribute('draggable', 'true');
+    item.ondragstart = (e) => onHymnDragStart(e, h.id);
+
     const numTag = h.hymn_number ? `LSB ${h.hymn_number}` : `Disc ${h.disc_number}`;
     item.innerHTML = `
-      <div>
-        <span class="badge" style="margin-right: 6px;">${numTag}</span>
-        <span style="font-weight: 500;">${h.title}</span>
-        <div class="subtitle">Disc ${h.disc_number}, Track ${h.track_number} • ${h.liturgical_season}</div>
+      <div style="display: flex; align-items: center; gap: 8px;">
+        <span class="drag-handle">⋮⋮</span>
+        <div>
+          <span class="badge" style="margin-right: 6px;">${numTag}</span>
+          <span style="font-weight: 500;">${h.title}</span>
+          <div class="subtitle">Disc ${h.disc_number}, Track ${h.track_number} • ${h.liturgical_season}</div>
+        </div>
       </div>
       <button class="btn btn-primary" onclick="addHymnToService(${h.id})">+ Add</button>
     `;
     container.appendChild(item);
   });
+}
+
+// Drag & Drop Handlers for Hymnal Catalog -> Service Slot
+function onHymnDragStart(e, hymnId) {
+  draggedHymnId = hymnId;
+  draggedItemIndex = null;
+  e.dataTransfer.setData('text/plain', JSON.stringify({ type: 'catalog', hymnId }));
+}
+
+function onDragOver(e) {
+  e.preventDefault();
+  e.currentTarget.classList.add('drag-over');
+}
+
+function onDragLeave(e) {
+  e.currentTarget.classList.remove('drag-over');
+}
+
+function onHymnDrop(e, targetIndex) {
+  e.preventDefault();
+  e.currentTarget.classList.remove('drag-over');
+
+  if (draggedHymnId !== null) {
+    // Catalog to slot drop
+    assignHymnToSlot(draggedHymnId, targetIndex);
+    draggedHymnId = null;
+  } else if (draggedItemIndex !== null && draggedItemIndex !== targetIndex) {
+    // In-list reorder drop
+    reorderServiceItems(draggedItemIndex, targetIndex);
+    draggedItemIndex = null;
+  }
+}
+
+// In-List Item Drag Handlers
+function onItemDragStart(e, itemIndex) {
+  draggedItemIndex = itemIndex;
+  draggedHymnId = null;
+  e.dataTransfer.setData('text/plain', JSON.stringify({ type: 'item', itemIndex }));
+}
+
+function reorderServiceItems(fromIndex, toIndex) {
+  if (!currentService || !currentService.items) return;
+  const items = currentService.items;
+  const [movedItem] = items.splice(fromIndex, 1);
+  items.splice(toIndex, 0, movedItem);
+
+  // Update sequence order
+  items.forEach((item, idx) => item.sequence_order = idx + 1);
+  syncServiceItems();
+}
+
+function assignHymnToSlot(hymnId, slotIndex) {
+  if (!currentService || !currentService.items || !currentService.items[slotIndex]) return;
+  const hymn = currentHymns.find(h => h.id === hymnId);
+  if (!hymn) return;
+
+  const target = currentService.items[slotIndex];
+  target.hymn_id = hymn.id;
+  target.item_title = hymn.hymn_number ? `LSB ${hymn.hymn_number} - ${hymn.title}` : hymn.title;
+  target.file_path = hymn.file_path;
+
+  syncServiceItems();
+}
+
+// Remove Service Item
+function removeServiceItem(itemIndex) {
+  if (!currentService || !currentService.items) return;
+  currentService.items.splice(itemIndex, 1);
+  currentService.items.forEach((item, idx) => item.sequence_order = idx + 1);
+  syncServiceItems();
 }
 
 // Fetch or Create Active Service
@@ -132,7 +211,12 @@ async function loadService(serviceId) {
 
 async function changeSettingPreset() {
   if (!currentService) return;
-  const preset = document.getElementById('preset-select').value;
+  await createNewService();
+}
+
+async function restoreOfficialPreset() {
+  if (!currentService) return;
+  document.getElementById('rubric-popover').classList.add('hidden');
   await createNewService();
 }
 
@@ -148,18 +232,28 @@ function renderService(service) {
   mobilePlaylist.innerHTML = '';
 
   (service.items || []).forEach((item, index) => {
-    // Desktop list item
+    // Desktop list item with drag handles and drop targets
     const el = document.createElement('div');
     el.className = 'service-item';
+    el.setAttribute('draggable', 'true');
+    el.ondragstart = (e) => onItemDragStart(e, index);
+    el.ondragover = onDragOver;
+    el.ondragleave = onDragLeave;
+    el.ondrop = (e) => onHymnDrop(e, index);
+
     el.innerHTML = `
-      <div style="display: flex; align-items: center; gap: 12px;">
+      <div style="display: flex; align-items: center; gap: 12px; flex: 1;">
+        <span class="drag-handle">⋮⋮</span>
         <span style="font-weight: 700; color: #64748b; width: 24px;">${String(index + 1).padStart(2, '0')}</span>
         <div>
           <span style="font-size: 11px; font-weight: 700; color: #60a5fa; text-transform: uppercase;">${item.slot_name}</span>
           <div style="font-weight: 500;">${item.item_title}</div>
         </div>
       </div>
-      <button class="btn btn-primary" onclick="playServiceTrack(${index})">▶ Play</button>
+      <div style="display: flex; align-items: center; gap: 8px;">
+        <button class="btn btn-primary" onclick="playServiceTrack(${index})">▶ Play</button>
+        <button class="btn-danger-text" onclick="removeServiceItem(${index})" title="Remove item">✕</button>
+      </div>
     `;
     container.appendChild(el);
 
@@ -173,6 +267,8 @@ function renderService(service) {
     `;
     mobilePlaylist.appendChild(mItem);
   });
+
+  fetchRubricStatus(service.id);
 }
 
 function addHymnToService(hymnId) {
@@ -180,12 +276,9 @@ function addHymnToService(hymnId) {
   const hymn = currentHymns.find(h => h.id === hymnId);
   if (!hymn) return;
 
-  // Find first empty placeholder or append
-  const targetItem = currentService.items.find(i => !i.hymn_id && i.slot_name.toLowerCase().includes('hymn'));
-  if (targetItem) {
-    targetItem.hymn_id = hymn.id;
-    targetItem.item_title = hymn.hymn_number ? `LSB ${hymn.hymn_number} - ${hymn.title}` : hymn.title;
-    targetItem.file_path = hymn.file_path;
+  const targetIndex = currentService.items.findIndex(i => !i.hymn_id && i.slot_name.toLowerCase().includes('hymn'));
+  if (targetIndex !== -1) {
+    assignHymnToSlot(hymnId, targetIndex);
   } else {
     currentService.items.push({
       service_id: currentService.id,
@@ -195,9 +288,8 @@ function addHymnToService(hymnId) {
       sequence_order: currentService.items.length + 1,
       file_path: hymn.file_path
     });
+    syncServiceItems();
   }
-
-  syncServiceItems();
 }
 
 async function syncServiceItems() {
@@ -211,6 +303,37 @@ async function syncServiceItems() {
   renderService(currentService);
 }
 
+// Rubric Status Validation
+async function fetchRubricStatus(serviceId) {
+  try {
+    const res = await fetch(`/api/services/${serviceId}/rubric`);
+    currentRubricStatus = await res.json();
+    updateRubricUI(currentRubricStatus);
+  } catch (err) {
+    console.error("Error fetching rubric status:", err);
+  }
+}
+
+function updateRubricUI(status) {
+  const badge = document.getElementById('rubric-badge');
+  const issuesList = document.getElementById('rubric-issues-list');
+
+  if (status.is_conformant) {
+    badge.className = 'rubric-badge conformant';
+    badge.textContent = `✓ Standard ${status.setting} Rubric`;
+    issuesList.innerHTML = '<li>All required canticles in standard order.</li>';
+  } else {
+    badge.className = 'rubric-badge modified';
+    badge.textContent = `⚠️ Custom Rubric (${status.issues.length} modified)`;
+    issuesList.innerHTML = status.issues.map(i => `<li>${i}</li>`).join('');
+  }
+}
+
+function toggleRubricPopover() {
+  const popover = document.getElementById('rubric-popover');
+  popover.classList.toggle('hidden');
+}
+
 // Audio Playback & Transport Controls
 function playServiceTrack(index) {
   if (!currentService || !currentService.items || !currentService.items[index]) return;
@@ -221,7 +344,6 @@ function playServiceTrack(index) {
   if (item.hymn_id) {
     audioUrl = `/api/hymns/${item.hymn_id}/audio`;
   } else if (item.file_path) {
-    // Search hymn by file_path
     const match = currentHymns.find(h => h.file_path === item.file_path);
     if (match) {
       audioUrl = `/api/hymns/${match.id}/audio`;
@@ -275,7 +397,6 @@ function updatePlayerUI(item) {
   document.getElementById('mobile-track-title').textContent = title;
   document.getElementById('mobile-track-subtitle').textContent = item ? item.slot_name : '--';
   updatePlayButtonUI();
-  renderService(currentService);
 }
 
 function updatePlayButtonUI() {

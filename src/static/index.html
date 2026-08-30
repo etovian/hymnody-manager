@@ -57,9 +57,23 @@
         <div class="service-header">
           <div class="flex-between mb-2 flex-wrap gap-2">
             <div>
-              <h2 id="service-title-display" style="font-size: 1.15rem; font-weight: 700;">Service Plan: Loading...</h2>
+              <div class="flex-items-center gap-2">
+                <h2 id="service-title-display" style="font-size: 1.15rem; font-weight: 700; display: inline;">Service Plan: Loading...</h2>
+                
+                <!-- Rubric Conformance Status Badge & Popover -->
+                <div class="rubric-status-wrapper" style="position: relative; display: inline-block; margin-left: 8px;">
+                  <span id="rubric-badge" class="rubric-badge conformant" onclick="toggleRubricPopover()" style="cursor: pointer;">✓ Standard Rubric</span>
+                  <div id="rubric-popover" class="rubric-popover hidden">
+                    <h4 style="font-size: 0.85rem; font-weight: 700; margin-bottom: 6px;">Rubric Conformance Details</h4>
+                    <ul id="rubric-issues-list" style="font-size: 0.75rem; color: #f87171; margin-left: 16px; margin-bottom: 8px;"></ul>
+                    <button class="btn btn-primary btn-sm" onclick="restoreOfficialPreset()" style="width: 100%;">🔄 Restore Template</button>
+                  </div>
+                </div>
+
+              </div>
               <p id="service-subtitle-display" class="subtitle">Date: -- | Setting: --</p>
             </div>
+
             <div class="btn-group">
               <button class="btn btn-emerald" onclick="exportMobileZip()">📦 Export Mobile Zip</button>
               <button class="btn btn-primary" onclick="createNewService()">➕ New Service</button>

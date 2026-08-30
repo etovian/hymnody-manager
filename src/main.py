@@ -6,7 +6,7 @@ from fastapi.staticfiles import StaticFiles
 
 from src.database import init_db, save_hymns, search_hymns, get_hymn_by_id
 from src.scanner import scan_hymns_directory
-from src.services import create_service_from_preset, get_service_details, update_service_items, list_services
+from src.services import create_service_from_preset, get_service_details, update_service_items, list_services, validate_service_rubric
 from src.exporter import export_service_zip
 
 def get_db_path():
@@ -113,6 +113,11 @@ def api_get_service(service_id: int):
     if not srv:
         raise HTTPException(status_code=404, detail="Service not found")
     return srv
+
+@app.get("/api/services/{service_id}/rubric")
+def api_get_service_rubric(service_id: int):
+    db_path = get_db_path()
+    return validate_service_rubric(service_id, db_path=db_path)
 
 @app.put("/api/services/{service_id}/items")
 def api_update_service_items(service_id: int, items: list = Body(...)):
