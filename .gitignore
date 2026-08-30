@@ -1,0 +1,21 @@
+# Audio files directory (ignored from git tracking)
+music/
+hymns/
+
+# SQLite Database
+*.db
+hymnody.db
+
+# Python & Environment
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.venv/
+venv/
+ENV/
+
+# IDE & Editor files
+.idea/
+.vscode/
+*.swp
