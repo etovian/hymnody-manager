@@ -75,6 +75,7 @@
             </div>
 
             <div class="btn-group">
+              <button class="btn btn-emerald" id="btn-save-service" onclick="saveActiveServiceUI()">💾 Save Service</button>
               <button class="btn btn-primary" onclick="openServicesExplorer()">📂 Services Explorer</button>
               <button class="btn btn-primary" onclick="openTemplateEditor()">⚙️ Manage Templates</button>
               <button class="btn btn-emerald" onclick="exportMobileZip()">📦 Export Mobile Zip</button>
@@ -98,12 +99,12 @@
             
             <div style="display: flex; align-items: center; gap: 8px;">
               <label style="font-weight: 600;">Date:</label>
-              <input type="date" id="service-date-input" onchange="updateServiceMetadataFromUI()" style="background: #0f172a; color: white; border: 1px solid #334155; padding: 4px 8px; border-radius: 6px; font-size: 0.8rem;">
+              <input type="date" id="service-date-input" onchange="onServiceMetadataChange()" style="background: #0f172a; color: white; border: 1px solid #334155; padding: 4px 8px; border-radius: 6px; font-size: 0.8rem;">
             </div>
 
             <div style="display: flex; align-items: center; gap: 8px;">
               <label style="font-weight: 600;">Liturgical Day:</label>
-              <input type="text" id="liturgical-day-input" placeholder="e.g. 15th Sunday after Trinity" onchange="updateServiceMetadataFromUI()" style="background: #0f172a; color: white; border: 1px solid #334155; padding: 4px 8px; border-radius: 6px; font-size: 0.8rem; width: 180px;">
+              <input type="text" id="liturgical-day-input" placeholder="e.g. 15th Sunday after Trinity" onchange="onServiceMetadataChange()" style="background: #0f172a; color: white; border: 1px solid #334155; padding: 4px 8px; border-radius: 6px; font-size: 0.8rem; width: 180px;">
             </div>
           </div>
         </div>

@@ -223,43 +223,122 @@ function removeServiceItem(itemIndex) {
   syncServiceItems();
 }
 
+let isServiceDirty = false;
+
+function markServiceDirty() {
+  isServiceDirty = true;
+  const saveBtn = document.getElementById('btn-save-service');
+  if (saveBtn) {
+    saveBtn.textContent = '💾 Save Service *';
+    saveBtn.classList.remove('btn-emerald');
+    saveBtn.classList.add('btn-primary');
+    saveBtn.style.border = '2px solid #3b82f6';
+  }
+}
+
+function markServiceClean() {
+  isServiceDirty = false;
+  const saveBtn = document.getElementById('btn-save-service');
+  if (saveBtn) {
+    saveBtn.textContent = '💾 Save Service';
+    saveBtn.classList.remove('btn-primary');
+    saveBtn.classList.add('btn-emerald');
+    saveBtn.style.border = 'none';
+  }
+}
+
+function syncServiceItems() {
+  if (!currentService) return;
+  (currentService.items || []).forEach((item, idx) => item.sequence_order = idx + 1);
+  renderService(currentService);
+  markServiceDirty();
+}
+
+function onServiceMetadataChange() {
+  if (!currentService) return;
+  currentService.service_date = document.getElementById('service-date-input').value;
+  currentService.liturgical_day = document.getElementById('liturgical-day-input').value;
+  renderService(currentService);
+  markServiceDirty();
+}
+
 // Fetch or Create Active Service
 async function fetchOrCreateService() {
   try {
     const res = await fetch('/api/services');
     const services = await res.json();
     if (services.length > 0) {
-      loadService(services[0].id);
+      await loadService(services[0].id);
     } else {
-      createNewService();
+      createDraftServiceLocally();
     }
   } catch (err) {
     console.error("Error fetching service:", err);
+    createDraftServiceLocally();
   }
 }
 
-async function createNewService() {
-  try {
-    const dateVal = document.getElementById('service-date-input').value || new Date().toISOString().split('T')[0];
-    const dayVal = document.getElementById('liturgical-day-input').value || '';
-    const presetVal = document.getElementById('preset-select').value || 'DS2';
+function createDraftServiceLocally(presetVal = 'DS2') {
+  const dateVal = document.getElementById('service-date-input')?.value || new Date().toISOString().split('T')[0];
+  const dayVal = document.getElementById('liturgical-day-input')?.value || '';
 
-    const res = await fetch('/api/services', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        title: "Sunday Worship Service",
-        service_date: dateVal,
-        liturgical_day: dayVal,
-        setting_preset: presetVal,
-        liturgical_color: "Green"
-      })
-    });
-    currentService = await res.json();
-    renderService(currentService);
-  } catch (err) {
-    console.error("Error creating service:", err);
+  let tmplItems = [];
+  const tmpl = availableTemplates.find(t => t.name === presetVal);
+  if (tmpl && tmpl.items) {
+    tmplItems = tmpl.items.map((it, idx) => ({
+      slot_name: it.slot_name,
+      item_title: it.item_title || it.slot_name,
+      match_term: it.match_term,
+      hymn_id: null,
+      sequence_order: idx + 1,
+      file_path: ""
+    }));
+  } else {
+    tmplItems = [
+      { slot_name: "Opening Hymn", item_title: "Invocation / Opening Hymn", match_term: "HYMN_SLOT", hymn_id: null, sequence_order: 1, file_path: "" },
+      { slot_name: "Kyrie", item_title: "Kyrie", match_term: "DS2 - Kyrie", hymn_id: null, sequence_order: 2, file_path: "" },
+      { slot_name: "Gloria", item_title: "Gloria in Excelsis", match_term: "DS2 - Gloria in Excelsis", hymn_id: null, sequence_order: 3, file_path: "" },
+      { slot_name: "Salutation", item_title: "Salutation", match_term: "DS2 - Salutation", hymn_id: null, sequence_order: 4, file_path: "" },
+      { slot_name: "Collect", item_title: "Collect of the Day", match_term: "DS2 - Collect of the Day", hymn_id: null, sequence_order: 5, file_path: "" },
+      { slot_name: "Hymn of the Day", item_title: "Hymn of the Day", match_term: "HYMN_SLOT", hymn_id: null, sequence_order: 6, file_path: "" },
+      { slot_name: "Offertory", item_title: "Offertory", match_term: "DS2 - Offertory", hymn_id: null, sequence_order: 7, file_path: "" },
+      { slot_name: "Sanctus", item_title: "Sanctus", match_term: "DS2 - Sanctus", hymn_id: null, sequence_order: 8, file_path: "" },
+      { slot_name: "Agnus Dei", item_title: "Agnus Dei", match_term: "DS2 - Agnus Dei", hymn_id: null, sequence_order: 9, file_path: "" },
+      { slot_name: "Distribution 1", item_title: "Distribution Hymn 1", match_term: "HYMN_SLOT", hymn_id: null, sequence_order: 10, file_path: "" },
+      { slot_name: "Distribution 2", item_title: "Distribution Hymn 2", match_term: "HYMN_SLOT", hymn_id: null, sequence_order: 11, file_path: "" },
+      { slot_name: "Nunc Dimittis", item_title: "Nunc Dimittis", match_term: "DS2 - Nunc Dimittis", hymn_id: null, sequence_order: 12, file_path: "" },
+      { slot_name: "Closing Hymn", item_title: "Closing Hymn", match_term: "HYMN_SLOT", hymn_id: null, sequence_order: 13, file_path: "" }
+    ];
   }
+
+  currentService = {
+    id: null,
+    title: "Sunday Worship Service",
+    service_date: dateVal,
+    liturgical_day: dayVal,
+    setting_preset: presetVal,
+    liturgical_color: "Green",
+    items: tmplItems
+  };
+
+  renderService(currentService);
+  markServiceDirty();
+}
+
+function createNewService() {
+  const presetVal = document.getElementById('preset-select')?.value || 'DS2';
+  createDraftServiceLocally(presetVal);
+}
+
+function changeSettingPreset() {
+  const presetVal = document.getElementById('preset-select')?.value || 'DS2';
+  createDraftServiceLocally(presetVal);
+}
+
+async function restoreOfficialPreset() {
+  document.getElementById('rubric-popover').classList.add('hidden');
+  const presetVal = currentService?.setting_preset || 'DS2';
+  createDraftServiceLocally(presetVal);
 }
 
 async function loadService(serviceId) {
@@ -267,41 +346,76 @@ async function loadService(serviceId) {
     const res = await fetch(`/api/services/${serviceId}`);
     currentService = await res.json();
     renderService(currentService);
+    markServiceClean();
   } catch (err) {
     console.error("Error loading service:", err);
   }
 }
 
-async function updateServiceMetadataFromUI() {
+async function saveActiveServiceUI() {
   if (!currentService) return;
-  const dateVal = document.getElementById('service-date-input').value;
-  const dayVal = document.getElementById('liturgical-day-input').value;
+
+  const dateVal = document.getElementById('service-date-input').value || new Date().toISOString().split('T')[0];
+  const dayVal = document.getElementById('liturgical-day-input').value || '';
+  const presetVal = document.getElementById('preset-select').value || 'DS2';
+
+  currentService.service_date = dateVal;
+  currentService.liturgical_day = dayVal;
+  currentService.setting_preset = presetVal;
 
   try {
-    const res = await fetch(`/api/services/${currentService.id}/metadata`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        service_date: dateVal,
-        liturgical_day: dayVal
-      })
-    });
-    currentService = await res.json();
+    if (!currentService.id) {
+      const res = await fetch('/api/services', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: currentService.title || "Sunday Worship Service",
+          service_date: currentService.service_date,
+          liturgical_day: currentService.liturgical_day,
+          setting_preset: currentService.setting_preset,
+          liturgical_color: currentService.liturgical_color || "Green"
+        })
+      });
+      const created = await res.json();
+      currentService.id = created.id;
+
+      (currentService.items || []).forEach(it => it.service_id = created.id);
+      const itemsRes = await fetch(`/api/services/${created.id}/items`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(currentService.items)
+      });
+      currentService = await itemsRes.json();
+    } else {
+      await fetch(`/api/services/${currentService.id}/metadata`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          service_date: currentService.service_date,
+          liturgical_day: currentService.liturgical_day,
+          title: currentService.title
+        })
+      });
+
+      const itemsRes = await fetch(`/api/services/${currentService.id}/items`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(currentService.items)
+      });
+      currentService = await itemsRes.json();
+    }
+
     renderService(currentService);
+    markServiceClean();
+
+    const saveBtn = document.getElementById('btn-save-service');
+    if (saveBtn) {
+      saveBtn.textContent = '✓ Saved!';
+      setTimeout(() => { markServiceClean(); }, 1500);
+    }
   } catch (err) {
-    console.error("Error updating service metadata:", err);
+    console.error("Error saving service:", err);
   }
-}
-
-async function changeSettingPreset() {
-  if (!currentService) return;
-  await createNewService();
-}
-
-async function restoreOfficialPreset() {
-  if (!currentService) return;
-  document.getElementById('rubric-popover').classList.add('hidden');
-  await createNewService();
 }
 
 function renderService(service) {
