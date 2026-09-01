@@ -3,7 +3,54 @@ import zipfile
 import pytest
 from src.database import init_db, save_hymns
 from src.services import create_service_from_preset, get_service_details, update_service_items
-from src.exporter import export_service_zip
+from src.exporter import export_service_zip, generate_export_filename
+
+def test_generate_export_filename_with_liturgical_day():
+    service = {
+        'service_date': '2026-09-01',
+        'setting_preset': 'DS3',
+        'liturgical_day': 'Pentecost 15'
+    }
+    filename = generate_export_filename(service)
+    assert filename == "20260901_DS3_Pentecost_15.zip"
+
+def test_generate_export_filename_without_liturgical_day():
+    service = {
+        'service_date': '2026-09-01',
+        'setting_preset': 'Matins',
+        'liturgical_day': ''
+    }
+    filename = generate_export_filename(service)
+    assert filename == "20260901_Matins.zip"
+
+def test_generate_export_filename_sanitization():
+    service = {
+        'service_date': '2026-09-01',
+        'setting_preset': 'DS 3 / Special',
+        'liturgical_day': 'Trinity: 15th Sunday!'
+    }
+    filename = generate_export_filename(service)
+    assert filename == "20260901_DS_3_Special_Trinity_15th_Sunday.zip"
+
+def test_generate_export_filename_invalid_date_fallback():
+    import datetime
+    today_str = datetime.date.today().strftime('%Y%m%d')
+    service = {
+        'service_date': 'invalid-date',
+        'setting_preset': 'Vespers',
+        'liturgical_day': None
+    }
+    filename = generate_export_filename(service)
+    assert filename == f"{today_str}_Vespers.zip"
+
+def test_generate_export_filename_preset_fallback():
+    service = {
+        'service_date': '2026-09-01',
+        'setting_preset': None,
+        'liturgical_day': ''
+    }
+    filename = generate_export_filename(service)
+    assert filename == "20260901_Service.zip"
 
 def test_export_service_zip(tmp_path):
     db_path = str(tmp_path / "export_test.db")
@@ -29,8 +76,9 @@ def test_export_service_zip(tmp_path):
     items[0]['item_title'] = "The advent of our King"
     update_service_items(srv_id, items, db_path=db_path)
     
-    zip_bytes = export_service_zip(srv_id, db_path=db_path)
+    zip_bytes, filename = export_service_zip(srv_id, db_path=db_path)
     assert zip_bytes is not None
+    assert filename == "20260830_DS2.zip"
     
     with zipfile.ZipFile(io.BytesIO(zip_bytes)) as zf:
         names = zf.namelist()
@@ -71,8 +119,9 @@ def test_export_service_zip_preserves_track_numbering_for_missing_files(tmp_path
             """, (s_id, it['hymn_id'], it['item_title'], it['slot_name'], it['sequence_order'], it['file_path']))
         conn.commit()
         
-    zip_bytes = export_service_zip(s_id, db_path=db_path)
+    zip_bytes, filename = export_service_zip(s_id, db_path=db_path)
     assert zip_bytes is not None
+    assert filename == "20260901_Matins.zip"
     
     with zipfile.ZipFile(io.BytesIO(zip_bytes), 'r') as zf:
         namelist = zf.namelist()
@@ -83,4 +132,5 @@ def test_export_service_zip_preserves_track_numbering_for_missing_files(tmp_path
         m3u_content = zf.read("playlist.m3u").decode('utf-8')
         assert "01_Opening_Hymn_Test_Hymn_1.m4a" in m3u_content
         assert "03_Office_Hymn_Test_Hymn_3.m4a" in m3u_content
+
 

@@ -54,6 +54,7 @@ def test_full_api_workflow(tmp_path):
     zip_res = client.get(f"/api/services/{srv_id}/export/zip")
     assert zip_res.status_code == 200
     assert zip_res.headers["content-type"] == "application/zip"
+    assert zip_res.headers["content-disposition"] == 'attachment; filename="20261129_DS2.zip"'
 
 def test_template_and_metadata_api_endpoints(tmp_path):
     db_path = str(tmp_path / "api_templates_test.db")
@@ -163,6 +164,26 @@ def test_export_invalid_service_id_returns_404(tmp_path):
     init_db(db_path)
     res = client.get("/api/services/99999/export/zip")
     assert res.status_code == 404
+
+def test_export_service_zip_filename_header(tmp_path):
+    db_path = str(tmp_path / "export_filename_test.db")
+    os.environ["HYMNODY_DB_PATH"] = db_path
+    init_db(db_path)
+    
+    srv_res = client.post("/api/services", json={
+        "title": "Pentecost Service",
+        "service_date": "2026-09-01",
+        "setting_preset": "DS3",
+        "liturgical_day": "Pentecost 15"
+    })
+    assert srv_res.status_code == 200
+    srv_id = srv_res.json()["id"]
+    
+    res = client.get(f"/api/services/{srv_id}/export/zip")
+    assert res.status_code == 200
+    assert res.headers["content-type"] == "application/zip"
+    assert res.headers["content-disposition"] == 'attachment; filename="20260901_DS3_Pentecost_15.zip"'
+
 
 
 

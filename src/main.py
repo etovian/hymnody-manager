@@ -197,13 +197,13 @@ def api_update_service_items(service_id: int, items: list = Body(...)):
 @app.get("/api/services/{service_id}/export/zip")
 def api_export_service_zip(service_id: int):
     db_path = get_db_path()
-    zip_data = export_service_zip(service_id, db_path=db_path)
+    zip_data, filename = export_service_zip(service_id, db_path=db_path)
     if not zip_data:
         raise HTTPException(status_code=404, detail="Service not found or empty")
     return Response(
         content=zip_data,
         media_type="application/zip",
-        headers={"Content-Disposition": f"attachment; filename=service_{service_id}.zip"}
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'}
     )
 
 @app.get("/api/analytics/hymns")
