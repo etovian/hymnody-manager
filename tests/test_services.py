@@ -132,3 +132,21 @@ def test_update_service_metadata(tmp_path):
     assert details['title'] == "Trinity Worship"
     assert details['notes'] == "Guest organist"
 
+def test_hymn_slots_are_placeholders_without_default_hymns(tmp_path):
+    db_path = str(tmp_path / "placeholder_test.db")
+    init_db(db_path)
+    
+    for setting in ["DS1", "DS2", "DS3", "DS4", "DS5", "Matins", "Vespers"]:
+        service_id = create_service_from_preset(
+            title=f"Test {setting}",
+            service_date="2026-09-01",
+            setting_preset=setting,
+            db_path=db_path
+        )
+        details = get_service_details(service_id, db_path=db_path)
+        for item in details['items']:
+            if "hymn" in item['slot_name'].lower() or "hymn" in item['item_title'].lower():
+                assert item['hymn_id'] is None, f"Hymn slot {item['slot_name']} in {setting} should not have a default hymn"
+                assert item['file_path'] == "", f"Hymn slot {item['slot_name']} in {setting} should have an empty file path"
+
+
