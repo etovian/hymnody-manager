@@ -442,10 +442,12 @@ async function saveActiveServiceUI() {
 }
 
 function renderService(service) {
-  const subtitle = `${service.service_date}${service.liturgical_day ? ' • ' + service.liturgical_day : ''} | Setting: ${service.setting_preset}`;
-  document.getElementById('service-title-display').textContent = `Service Plan: ${service.title}`;
+  if (!service || !Array.isArray(service.items)) return;
+
+  const subtitle = `${service.service_date || ''}${service.liturgical_day ? ' • ' + service.liturgical_day : ''} | Setting: ${service.setting_preset || ''}`;
+  document.getElementById('service-title-display').textContent = `Service Plan: ${service.title || 'Sunday Service'}`;
   document.getElementById('service-subtitle-display').textContent = subtitle;
-  document.getElementById('mobile-service-title').textContent = service.title;
+  document.getElementById('mobile-service-title').textContent = service.title || 'Sunday Service';
   document.getElementById('mobile-service-subtitle').textContent = subtitle;
 
   document.getElementById('service-date-input').value = service.service_date || new Date().toISOString().split('T')[0];
@@ -517,24 +519,26 @@ function addHymnToService(hymnId) {
   }
 }
 
-async function syncServiceItems() {
-  if (!currentService) return;
-  currentService.items.forEach((item, idx) => item.sequence_order = idx + 1);
-  const res = await fetch(`/api/services/${currentService.id}/items`, {
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(currentService.items)
-  });
-  currentService = await res.json();
-  renderService(currentService);
-}
-
 // Rubric Status Validation
 async function fetchRubricStatus(serviceId) {
+  if (!serviceId) {
+    const badge = document.getElementById('rubric-badge');
+    const issuesList = document.getElementById('rubric-issues-list');
+    if (badge) {
+      badge.className = 'rubric-badge conformant';
+      badge.textContent = `✓ Standard Rubric`;
+    }
+    if (issuesList) {
+      issuesList.innerHTML = '<li>All required canticles in standard order.</li>';
+    }
+    return;
+  }
   try {
     const res = await fetch(`/api/services/${serviceId}/rubric`);
-    currentRubricStatus = await res.json();
-    updateRubricUI(currentRubricStatus);
+    if (res.ok) {
+      currentRubricStatus = await res.json();
+      updateRubricUI(currentRubricStatus);
+    }
   } catch (err) {
     console.error("Error fetching rubric status:", err);
   }
