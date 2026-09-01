@@ -1121,7 +1121,14 @@ function setVolume(vol) {
 }
 
 // Export Mobile Package Zip
-function exportMobileZip() {
+async function exportMobileZip() {
   if (!currentService) return;
+  if (!currentService.id || isServiceDirty) {
+    await saveActiveServiceUI();
+  }
+  if (!currentService || !currentService.id) {
+    alert("Please save the service plan before exporting.");
+    return;
+  }
   window.location.href = `/api/services/${currentService.id}/export/zip`;
 }

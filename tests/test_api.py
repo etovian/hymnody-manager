@@ -157,5 +157,12 @@ def test_create_service_from_template_with_bound_audio_track(tmp_path):
     assert details["items"][0]["item_title"] == "DS3 - Salutation"
     assert details["items"][0]["file_path"] == "c:/music/ds3_salutation.m4a"
 
+def test_export_invalid_service_id_returns_404(tmp_path):
+    db_path = str(tmp_path / "export_404_test.db")
+    os.environ["HYMNODY_DB_PATH"] = db_path
+    init_db(db_path)
+    res = client.get("/api/services/99999/export/zip")
+    assert res.status_code == 404
+
 
 
