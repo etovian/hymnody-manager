@@ -17,9 +17,10 @@ def export_service_zip(service_id, db_path="hymnody.db"):
             file_path = item.get('file_path')
             raw_title = item.get('item_title', f"Track_{idx}")
             slot = item.get('slot_name', f"Slot_{idx}")
+            seq_num = item.get('sequence_order', idx)
             
             clean_title = re.sub(r'[\/:*?"<>|]', '_', f"{slot}_{raw_title}").replace(' ', '_')
-            filename = f"{idx:02d}_{clean_title}.m4a"
+            filename = f"{seq_num:02d}_{clean_title}.m4a"
             
             if file_path and os.path.exists(file_path):
                 zf.write(file_path, arcname=filename)

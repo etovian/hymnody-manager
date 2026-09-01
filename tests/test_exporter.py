@@ -39,3 +39,48 @@ def test_export_service_zip(tmp_path):
         
         m3u_content = zf.read("playlist.m3u").decode("utf-8")
         assert "#EXTM3U" in m3u_content
+
+def test_export_service_zip_preserves_track_numbering_for_missing_files(tmp_path):
+    db_path = str(tmp_path / "test_export_seq.db")
+    init_db(db_path)
+    
+    sample_hymn = tmp_path / "1-01 331 - Test Hymn.m4a"
+    sample_hymn.write_bytes(b"dummy m4a content")
+    
+    hymns = [
+        {'id': 1, 'hymn_number': 331, 'title': 'Test Hymn 1', 'disc_number': 1, 'track_number': 1, 'file_path': str(sample_hymn), 'liturgical_season': 'General'},
+        {'id': 2, 'hymn_number': 332, 'title': 'Test Hymn 3', 'disc_number': 1, 'track_number': 2, 'file_path': str(sample_hymn), 'liturgical_season': 'General'}
+    ]
+    save_hymns(hymns, db_path=db_path)
+    
+    from src.database import get_db_connection
+    items = [
+        {'hymn_id': 1, 'slot_name': 'Opening Hymn', 'item_title': 'Test Hymn 1', 'sequence_order': 1, 'file_path': str(sample_hymn)},
+        {'hymn_id': None, 'slot_name': 'Venite', 'item_title': 'Venite (O Come)', 'sequence_order': 2, 'file_path': ''},
+        {'hymn_id': 2, 'slot_name': 'Office Hymn', 'item_title': 'Test Hymn 3', 'sequence_order': 3, 'file_path': str(sample_hymn)}
+    ]
+    
+    with get_db_connection(db_path) as conn:
+        cursor = conn.cursor()
+        cursor.execute("INSERT INTO services (service_date, title, setting_preset) VALUES ('2026-09-01', 'Test Matins', 'Matins')")
+        s_id = cursor.lastrowid
+        for it in items:
+            cursor.execute("""
+                INSERT INTO service_items (service_id, hymn_id, item_title, slot_name, sequence_order, file_path)
+                VALUES (?, ?, ?, ?, ?, ?)
+            """, (s_id, it['hymn_id'], it['item_title'], it['slot_name'], it['sequence_order'], it['file_path']))
+        conn.commit()
+        
+    zip_bytes = export_service_zip(s_id, db_path=db_path)
+    assert zip_bytes is not None
+    
+    with zipfile.ZipFile(io.BytesIO(zip_bytes), 'r') as zf:
+        namelist = zf.namelist()
+        assert "01_Opening_Hymn_Test_Hymn_1.m4a" in namelist
+        assert "03_Office_Hymn_Test_Hymn_3.m4a" in namelist
+        assert "02_Venite_Venite_(O_Come).m4a" not in namelist
+        
+        m3u_content = zf.read("playlist.m3u").decode('utf-8')
+        assert "01_Opening_Hymn_Test_Hymn_1.m4a" in m3u_content
+        assert "03_Office_Hymn_Test_Hymn_3.m4a" in m3u_content
+

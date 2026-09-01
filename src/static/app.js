@@ -462,6 +462,12 @@ function renderService(service) {
   mobilePlaylist.innerHTML = '';
 
   (service.items || []).forEach((item, index) => {
+    const hasAudio = Boolean(item.file_path && item.file_path.trim());
+    const badgeHtml = hasAudio ? '' : '<span class="badge-missing-audio" style="margin-left: 6px;">⚠️ Missing Audio</span>';
+    const playBtnHtml = hasAudio
+      ? `<button class="btn btn-primary" onclick="playServiceTrack(${index})">▶ Play</button>`
+      : `<button class="btn btn-disabled-audio" onclick="playServiceTrack(${index})" title="No audio file bound to this item">⚠️ No Audio</button>`;
+
     const el = document.createElement('div');
     el.className = 'service-item';
     el.setAttribute('draggable', 'true');
@@ -475,12 +481,15 @@ function renderService(service) {
         <span class="drag-handle">⋮⋮</span>
         <span style="font-weight: 700; color: #64748b; width: 24px;">${String(index + 1).padStart(2, '0')}</span>
         <div>
-          <span style="font-size: 11px; font-weight: 700; color: #60a5fa; text-transform: uppercase;">${item.slot_name}</span>
+          <div style="display: flex; align-items: center; gap: 4px;">
+            <span style="font-size: 11px; font-weight: 700; color: #60a5fa; text-transform: uppercase;">${item.slot_name}</span>
+            ${badgeHtml}
+          </div>
           <div style="font-weight: 500;">${item.item_title}</div>
         </div>
       </div>
       <div style="display: flex; align-items: center; gap: 8px;">
-        <button class="btn btn-primary" onclick="playServiceTrack(${index})">▶ Play</button>
+        ${playBtnHtml}
         <button class="btn-danger-text" onclick="removeServiceItem(${index})" title="Remove item">✕</button>
       </div>
     `;
@@ -489,9 +498,10 @@ function renderService(service) {
     const mItem = document.createElement('div');
     mItem.className = `mobile-playlist-item ${index === activeTrackIndex ? 'active' : ''}`;
     mItem.onclick = () => playServiceTrack(index);
+    const mSubtitle = hasAudio ? (item.hymn_id ? 'Hymn' : 'Audio Track') : '⚠️ Unbound';
     mItem.innerHTML = `
       <span>${index + 1}. ${item.item_title}</span>
-      <span class="subtitle">${item.hymn_id ? 'Hymn' : 'Canticle'}</span>
+      <span class="subtitle">${mSubtitle}</span>
     `;
     mobilePlaylist.appendChild(mItem);
   });
@@ -1025,13 +1035,18 @@ function playServiceTrack(index) {
     audioPlayer.play();
     isPlaying = true;
     updatePlayerUI(item);
+  } else {
+    alert(`No audio file bound to slot "${item.slot_name}" (${item.item_title}). You can drag a track from the hymnal catalog to bind audio.`);
   }
 }
 
 function togglePlayPause() {
   if (!audioPlayer.src) {
     if (currentService && currentService.items.length > 0) {
-      playServiceTrack(0);
+      const nextPlayable = currentService.items.findIndex(it => Boolean(it.file_path));
+      if (nextPlayable !== -1) {
+        playServiceTrack(nextPlayable);
+      }
     }
     return;
   }
@@ -1047,8 +1062,14 @@ function togglePlayPause() {
 
 function playNextTrack() {
   if (!currentService || !currentService.items) return;
-  if (activeTrackIndex < currentService.items.length - 1) {
-    playServiceTrack(activeTrackIndex + 1);
+  let nextIdx = activeTrackIndex + 1;
+  while (nextIdx < currentService.items.length) {
+    const item = currentService.items[nextIdx];
+    if (item.hymn_id || item.file_path) {
+      playServiceTrack(nextIdx);
+      return;
+    }
+    nextIdx++;
   }
 }
 
@@ -1130,5 +1151,15 @@ async function exportMobileZip() {
     alert("Please save the service plan before exporting.");
     return;
   }
+
+  const missingItems = (currentService.items || []).filter(item => !item.file_path || !item.file_path.trim());
+  if (missingItems.length > 0) {
+    const listStr = missingItems.map(it => `• Item ${String(it.sequence_order || 1).padStart(2, '0')}: ${it.slot_name} (${it.item_title})`).join('\n');
+    const msg = `Notice: ${missingItems.length} item(s) in this worship service plan do not have audio files bound:\n\n${listStr}\n\nThese items will be omitted from the exported ZIP package. Track sequence numbering (01, 03, 05...) will be preserved for exported files.\n\nDo you want to proceed with export anyway?`;
+    if (!confirm(msg)) {
+      return;
+    }
+  }
+
   window.location.href = `/api/services/${currentService.id}/export/zip`;
 }
