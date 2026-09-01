@@ -586,33 +586,127 @@ function selectTemplateUI(templateId) {
   renderTemplateSlotsUI(t.items || []);
 }
 
+let draggedTemplateSlotIdx = null;
+
 function renderTemplateSlotsUI(items) {
   const container = document.getElementById('template-slots-editor-list');
   container.innerHTML = '';
 
   items.forEach((item, idx) => {
     const row = document.createElement('div');
-    row.style.display = 'flex';
-    row.style.gap = '8px';
-    row.style.alignItems = 'center';
+    row.className = 'template-slot-card';
+    row.setAttribute('draggable', 'true');
+    
+    row.ondragstart = (e) => {
+      draggedTemplateSlotIdx = idx;
+      draggedHymnId = null;
+      e.dataTransfer.setData('text/plain', JSON.stringify({ type: 'template-slot', idx }));
+    };
+    row.ondragover = (e) => {
+      e.preventDefault();
+      row.classList.add('drag-over');
+    };
+    row.ondragleave = () => {
+      row.classList.remove('drag-over');
+    };
+    row.ondrop = (e) => {
+      e.preventDefault();
+      row.classList.remove('drag-over');
+      onTemplateSlotDrop(e, idx);
+    };
+
+    const isHymn = !item.match_term || item.match_term === 'HYMN_SLOT';
+    const badgeClass = isHymn ? 'badge-hymn' : 'badge-audio';
+    const badgeLabel = isHymn ? '📖 Hymn Placeholder' : `🎵 Audio: ${item.match_term}`;
 
     row.innerHTML = `
-      <span style="font-weight: 700; color: #64748b; width: 20px;">${idx + 1}</span>
-      <input type="text" class="slot-name-input" value="${item.slot_name || ''}" placeholder="Slot Name (e.g. Kyrie)" style="flex: 1; background: #0f172a; color: white; border: 1px solid #334155; padding: 4px 8px; border-radius: 4px; font-size: 0.8rem;">
-      <input type="text" class="match-term-input" value="${item.match_term || ''}" placeholder="Match Term (or HYMN_SLOT)" style="flex: 1; background: #0f172a; color: white; border: 1px solid #334155; padding: 4px 8px; border-radius: 4px; font-size: 0.8rem;">
-      <button type="button" class="btn-danger-text" onclick="removeTemplateSlotUI(${idx})">✕</button>
+      <span class="drag-handle" title="Drag to reorder slot">⋮⋮</span>
+      <span style="font-weight: 700; color: #64748b; width: 20px;">${String(idx + 1).padStart(2, '0')}</span>
+      <div style="flex: 1; display: flex; flex-direction: column; gap: 4px;">
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <input type="text" class="slot-name-input" value="${item.slot_name || ''}" placeholder="Slot Name (e.g. Kyrie)" style="flex: 1; background: #0f172a; color: white; border: 1px solid #334155; padding: 4px 8px; border-radius: 4px; font-size: 0.85rem;" onchange="updateTemplateItemField(${idx}, 'slot_name', this.value)">
+          <span class="${badgeClass}">${badgeLabel}</span>
+        </div>
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <input type="text" class="match-term-input" value="${item.match_term || ''}" placeholder="Match Term (or HYMN_SLOT)" style="flex: 1; background: #0f172a; color: #94a3b8; border: 1px solid #334155; padding: 2px 6px; border-radius: 4px; font-size: 0.75rem;" onchange="updateTemplateItemField(${idx}, 'match_term', this.value)">
+        </div>
+      </div>
+      <button type="button" class="btn-danger-text" onclick="removeTemplateSlotUI(${idx})" title="Delete slot">✕</button>
     `;
     container.appendChild(row);
   });
 }
 
-function addTemplateSlotUI() {
+function updateTemplateItemField(index, field, value) {
+  if (!selectedTemplateForEdit || !selectedTemplateForEdit.items || !selectedTemplateForEdit.items[index]) return;
+  selectedTemplateForEdit.items[index][field] = value;
+  if (field === 'match_term') {
+    renderTemplateSlotsUI(selectedTemplateForEdit.items);
+  }
+}
+
+function onTemplateListDragOver(e) {
+  e.preventDefault();
+}
+
+function onTemplateListDrop(e) {
+  e.preventDefault();
+  if (draggedHymnId !== null && selectedTemplateForEdit) {
+    const hymn = currentHymns.find(h => h.id === draggedHymnId);
+    if (hymn) {
+      selectedTemplateForEdit.items = selectedTemplateForEdit.items || [];
+      selectedTemplateForEdit.items.push({
+        slot_name: hymn.title,
+        match_term: hymn.title,
+        item_title: hymn.title
+      });
+      renderTemplateSlotsUI(selectedTemplateForEdit.items);
+    }
+    draggedHymnId = null;
+  }
+}
+
+function onTemplateSlotDrop(e, targetIdx) {
+  if (!selectedTemplateForEdit || !selectedTemplateForEdit.items) return;
+  
+  if (draggedHymnId !== null) {
+    const hymn = currentHymns.find(h => h.id === draggedHymnId);
+    if (hymn) {
+      selectedTemplateForEdit.items[targetIdx] = {
+        slot_name: hymn.title,
+        match_term: hymn.title,
+        item_title: hymn.title
+      };
+      renderTemplateSlotsUI(selectedTemplateForEdit.items);
+    }
+    draggedHymnId = null;
+  } else if (draggedTemplateSlotIdx !== null && draggedTemplateSlotIdx !== targetIdx) {
+    const items = selectedTemplateForEdit.items;
+    const [moved] = items.splice(draggedTemplateSlotIdx, 1);
+    items.splice(targetIdx, 0, moved);
+    renderTemplateSlotsUI(items);
+    draggedTemplateSlotIdx = null;
+  }
+}
+
+function addHymnPlaceholderSlotUI() {
   if (!selectedTemplateForEdit) return;
   selectedTemplateForEdit.items = selectedTemplateForEdit.items || [];
   selectedTemplateForEdit.items.push({
-    slot_name: "New Canticle / Hymn Slot",
+    slot_name: "Selected Hymn",
     match_term: "HYMN_SLOT",
-    item_title: "New Slot"
+    item_title: "Hymn Placeholder"
+  });
+  renderTemplateSlotsUI(selectedTemplateForEdit.items);
+}
+
+function addCustomSlotUI() {
+  if (!selectedTemplateForEdit) return;
+  selectedTemplateForEdit.items = selectedTemplateForEdit.items || [];
+  selectedTemplateForEdit.items.push({
+    slot_name: "New Canticle Slot",
+    match_term: "DS3 - Salutation",
+    item_title: "New Canticle Slot"
   });
   renderTemplateSlotsUI(selectedTemplateForEdit.items);
 }
@@ -631,7 +725,7 @@ function createNewTemplateUI() {
     is_builtin: 0,
     items: [
       { slot_name: "Opening Hymn", match_term: "HYMN_SLOT", item_title: "Opening Hymn" },
-      { slot_name: "Kyrie", match_term: "DS2 - Kyrie", item_title: "Kyrie" },
+      { slot_name: "DS3 - Salutation", match_term: "DS3 - Salutation", item_title: "DS3 - Salutation" },
       { slot_name: "Closing Hymn", match_term: "HYMN_SLOT", item_title: "Closing Hymn" }
     ]
   };
@@ -647,7 +741,7 @@ async function saveTemplateFromUI() {
   const nameVal = document.getElementById('edit-template-name').value;
   const descVal = document.getElementById('edit-template-desc').value;
 
-  const rows = document.querySelectorAll('#template-slots-editor-list > div');
+  const rows = document.querySelectorAll('#template-slots-editor-list > .template-slot-card');
   const items = [];
   rows.forEach((r, idx) => {
     const sName = r.querySelector('.slot-name-input').value;

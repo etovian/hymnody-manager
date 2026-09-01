@@ -62,3 +62,33 @@ c:\dev\IdeaProjects\hymnody-manager\
   uvicorn src.main:app --reload --port 8000
   ```
 - **Access App**: Open `http://localhost:8000` in browser.
+
+---
+
+## Rules
+
+### NEVER
+
+- Move to planning work during a brainstorming session without asking permission
+- Move from planning work to implementation without pausing for review
+- Commit to master without suggesting
+
+### ALWAYS
+
+- Use your superpowers to:
+    - brainstorm
+    - review code
+    - manage parallel agents
+    - execute plans
+    - finish a development branch
+    - perform code reviews
+    - ask for code reviews
+    - use sub agents for development
+    - debug issues
+    - use a test-driven development (TDD) approach
+    - verify code changes before committing them
+    - write plans
+    - write new skills
+    - Pause and ask for a review when you are finished writing specs
+    - Ask if you should create a working branch when you are about to start making code changes
+

@@ -210,11 +210,16 @@
                 <label style="font-weight: 600; font-size: 0.85rem;">Description:</label>
                 <input type="text" id="edit-template-desc" style="width: 100%; background: #0f172a; color: white; border: 1px solid #334155; padding: 6px 10px; border-radius: 6px; font-size: 0.85rem; margin-top: 4px;">
               </div>
-              <div class="flex-between" style="margin-bottom: 8px;">
+              <div class="flex-between" style="margin-bottom: 4px; flex-wrap: wrap; gap: 8px;">
                 <h4 style="font-size: 0.9rem; font-weight: 700;">Template Ordinaries & Slots</h4>
-                <button type="button" class="btn btn-primary" onclick="addTemplateSlotUI()">+ Add Slot</button>
+                <div style="display: flex; gap: 6px;">
+                  <button type="button" class="btn btn-primary btn-sm" onclick="addHymnPlaceholderSlotUI()">+ Hymn Placeholder</button>
+                  <button type="button" class="btn btn-primary btn-sm" onclick="addCustomSlotUI()">+ Custom Slot</button>
+                </div>
               </div>
-              <div id="template-slots-editor-list" style="display: flex; flex-direction: column; gap: 8px; margin-bottom: 16px;"></div>
+              <p class="subtitle" style="margin-bottom: 10px; font-size: 0.75rem; color: #60a5fa;">💡 Tip: Drag items from the Hymnal Catalog on the left into this list to bind specific audio tracks (e.g. <em>DS3 - Salutation</em>), or drag handles (⋮⋮) to reorder slots.</p>
+              
+              <div id="template-slots-editor-list" style="display: flex; flex-direction: column; gap: 8px; margin-bottom: 16px; min-height: 120px;" ondragover="onTemplateListDragOver(event)" ondrop="onTemplateListDrop(event)"></div>
               <div class="flex-between">
                 <button type="button" id="btn-delete-template" class="btn btn-danger-text" onclick="deleteTemplateUI()">Delete Template</button>
                 <button type="submit" class="btn btn-emerald">Save Template</button>

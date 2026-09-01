@@ -97,3 +97,25 @@ def test_template_and_metadata_api_endpoints(tmp_path):
     assert ana_res.status_code == 200
     assert isinstance(ana_res.json(), list)
 
+def test_custom_template_with_specific_audio_track_and_reordering(tmp_path):
+    db_path = str(tmp_path / "custom_template_audio_test.db")
+    os.environ["HYMNODY_DB_PATH"] = db_path
+    init_db(db_path)
+    
+    res = client.post("/api/templates", json={
+        "name": "Custom DS3 Variant",
+        "description": "DS3 with Salutation audio track",
+        "items": [
+            {"slot_name": "Opening Hymn", "match_term": "HYMN_SLOT", "item_title": "Opening Hymn"},
+            {"slot_name": "DS3 - Salutation", "match_term": "DS3 - Salutation", "item_title": "DS3 - Salutation"},
+            {"slot_name": "DS3 - Collect of the Day", "match_term": "DS3 - Collect of the Day", "item_title": "DS3 - Collect of the Day"},
+            {"slot_name": "Closing Hymn", "match_term": "HYMN_SLOT", "item_title": "Closing Hymn"}
+        ]
+    })
+    assert res.status_code == 200
+    tmpl = res.json()
+    assert tmpl["name"] == "Custom DS3 Variant"
+    assert len(tmpl["items"]) == 4
+    assert tmpl["items"][1]["match_term"] == "DS3 - Salutation"
+
+
