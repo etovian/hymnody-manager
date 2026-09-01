@@ -118,4 +118,44 @@ def test_custom_template_with_specific_audio_track_and_reordering(tmp_path):
     assert len(tmpl["items"]) == 4
     assert tmpl["items"][1]["match_term"] == "DS3 - Salutation"
 
+def test_create_service_from_template_with_bound_audio_track(tmp_path):
+    from src.database import save_hymns
+    from src.services import create_service_from_preset, get_service_details
+    
+    db_path = str(tmp_path / "bound_audio_service_test.db")
+    os.environ["HYMNODY_DB_PATH"] = db_path
+    init_db(db_path)
+    
+    # Add DS3 - Salutation audio track to DB
+    save_hymns([{
+        "title": "DS3 - Salutation",
+        "hymn_number": "",
+        "disc_number": 30,
+        "track_number": 62,
+        "album": "Divine Service 3",
+        "artist": "Concordia Organist",
+        "year": 2006,
+        "liturgical_season": "Liturgical",
+        "file_path": "c:/music/ds3_salutation.m4a"
+    }], db_path=db_path)
+    
+    # Create template
+    t_res = client.post("/api/templates", json={
+        "name": "Template With Salutation",
+        "description": "Custom template",
+        "items": [
+            {"slot_name": "Salutation", "match_term": "DS3 - Salutation", "item_title": "Salutation"}
+        ]
+    })
+    tmpl_id = t_res.json()["id"]
+    
+    # Generate service using preset/template name
+    srv = create_service_from_preset("Sunday Worship", "2026-09-01", "Template With Salutation", db_path=db_path)
+    details = get_service_details(srv, db_path=db_path)
+    
+    assert len(details["items"]) == 1
+    assert details["items"][0]["item_title"] == "DS3 - Salutation"
+    assert details["items"][0]["file_path"] == "c:/music/ds3_salutation.m4a"
+
+
 

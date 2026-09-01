@@ -95,10 +95,28 @@ function renderHymnList(hymns) {
           <div class="subtitle">Disc ${h.disc_number}, Track ${h.track_number} • ${h.liturgical_season}</div>
         </div>
       </div>
-      <button class="btn btn-primary" onclick="addHymnToService(${h.id})">+ Add</button>
+      <button class="btn btn-primary" onclick="handleCatalogAddClick(${h.id})">+ Add</button>
     `;
     container.appendChild(item);
   });
+}
+
+function handleCatalogAddClick(hymnId) {
+  const isTemplateModalOpen = !document.getElementById('template-editor-modal').classList.contains('hidden');
+  if (isTemplateModalOpen && selectedTemplateForEdit) {
+    const hymn = currentHymns.find(h => h.id === hymnId);
+    if (hymn) {
+      selectedTemplateForEdit.items = selectedTemplateForEdit.items || [];
+      selectedTemplateForEdit.items.push({
+        slot_name: hymn.title,
+        match_term: hymn.title,
+        item_title: hymn.title
+      });
+      renderTemplateSlotsUI(selectedTemplateForEdit.items);
+    }
+  } else {
+    addHymnToService(hymnId);
+  }
 }
 
 // Drag & Drop Handlers for Hymnal Catalog -> Service Slot
@@ -651,8 +669,16 @@ function onTemplateListDragOver(e) {
 
 function onTemplateListDrop(e) {
   e.preventDefault();
-  if (draggedHymnId !== null && selectedTemplateForEdit) {
-    const hymn = currentHymns.find(h => h.id === draggedHymnId);
+  let hId = draggedHymnId;
+  if (hId === null) {
+    try {
+      const data = JSON.parse(e.dataTransfer.getData('text/plain') || '{}');
+      if (data.type === 'catalog') hId = data.hymnId;
+    } catch (err) {}
+  }
+
+  if (hId !== null && hId !== undefined && selectedTemplateForEdit) {
+    const hymn = currentHymns.find(h => h.id === hId);
     if (hymn) {
       selectedTemplateForEdit.items = selectedTemplateForEdit.items || [];
       selectedTemplateForEdit.items.push({
@@ -669,8 +695,16 @@ function onTemplateListDrop(e) {
 function onTemplateSlotDrop(e, targetIdx) {
   if (!selectedTemplateForEdit || !selectedTemplateForEdit.items) return;
   
-  if (draggedHymnId !== null) {
-    const hymn = currentHymns.find(h => h.id === draggedHymnId);
+  let hId = draggedHymnId;
+  if (hId === null) {
+    try {
+      const data = JSON.parse(e.dataTransfer.getData('text/plain') || '{}');
+      if (data.type === 'catalog') hId = data.hymnId;
+    } catch (err) {}
+  }
+
+  if (hId !== null && hId !== undefined) {
+    const hymn = currentHymns.find(h => h.id === hId);
     if (hymn) {
       selectedTemplateForEdit.items[targetIdx] = {
         slot_name: hymn.title,
