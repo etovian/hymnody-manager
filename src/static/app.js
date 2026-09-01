@@ -56,6 +56,7 @@ async function fetchHymns(query = '') {
     const res = await fetch(url);
     currentHymns = await res.json();
     renderHymnList(currentHymns);
+    searchModalCatalog();
   } catch (err) {
     console.error("Error fetching hymns:", err);
   }
@@ -538,10 +539,53 @@ async function deleteServiceFromExplorer(serviceId) {
 async function openTemplateEditor() {
   document.getElementById('template-editor-modal').classList.remove('hidden');
   await loadTemplatesUI();
+  searchModalCatalog();
 }
 
 function closeTemplateEditor() {
   document.getElementById('template-editor-modal').classList.add('hidden');
+}
+
+function searchModalCatalog() {
+  const query = (document.getElementById('modal-catalog-search')?.value || '').toLowerCase();
+  const container = document.getElementById('modal-catalog-results');
+  if (!container) return;
+  container.innerHTML = '';
+
+  const filtered = currentHymns.filter(h => {
+    return (h.title || '').toLowerCase().includes(query) ||
+           (h.hymn_number || '').toString().includes(query) ||
+           (h.liturgical_season || '').toLowerCase().includes(query);
+  }).slice(0, 50);
+
+  if (filtered.length === 0) {
+    container.innerHTML = '<div style="color: #94a3b8; font-size: 0.75rem; padding: 4px;">No matching audio tracks found.</div>';
+    return;
+  }
+
+  filtered.forEach(h => {
+    const card = document.createElement('div');
+    card.style.background = '#0f172a';
+    card.style.border = '1px solid #334155';
+    card.style.borderRadius = '6px';
+    card.style.padding = '6px 8px';
+    card.style.display = 'flex';
+    card.style.alignItems = 'center';
+    card.style.justifyContent = 'space-between';
+    card.style.cursor = 'grab';
+    card.setAttribute('draggable', 'true');
+    card.ondragstart = (e) => onHymnDragStart(e, h.id);
+
+    const numTag = h.hymn_number ? `LSB ${h.hymn_number}` : `Disc ${h.disc_number}`;
+    card.innerHTML = `
+      <div style="overflow: hidden; flex: 1; margin-right: 6px;">
+        <div style="font-size: 0.75rem; font-weight: 700; color: white; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${h.title}</div>
+        <div style="font-size: 0.65rem; color: #94a3b8;">${numTag} • Track ${h.track_number}</div>
+      </div>
+      <button type="button" class="btn btn-primary btn-sm" style="font-size: 0.7rem; padding: 2px 6px;" onclick="handleCatalogAddClick(${h.id})">+ Add</button>
+    `;
+    container.appendChild(card);
+  });
 }
 
 async function loadTemplatesUI() {

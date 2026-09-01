@@ -189,17 +189,31 @@
 
     <!-- TEMPLATE EDITOR MODAL -->
     <div id="template-editor-modal" class="modal-backdrop hidden">
-      <div class="modal-card" style="max-width: 900px;">
+      <div class="modal-card" style="max-width: 1050px; width: 95%;">
         <div class="modal-header">
           <h3 style="font-size: 1.15rem; font-weight: 700;">⚙️ Manage Worship Service Templates</h3>
           <button class="btn-close" onclick="closeTemplateEditor()">✕</button>
         </div>
-        <div class="modal-body" style="display: flex; gap: 16px; max-height: 550px;">
-          <div style="width: 32%; border-right: 1px solid #334155; padding-right: 12px; display: flex; flex-direction: column; gap: 8px;">
-            <button class="btn btn-emerald btn-sm" onclick="createNewTemplateUI()">➕ New Template</button>
-            <div id="template-list-container" class="template-selector-list" style="overflow-y: auto; flex: 1;"></div>
+        <div class="modal-body" style="display: flex; gap: 16px; max-height: 600px;">
+          <!-- LEFT COLUMN: Template Selector + Embedded Audio Catalog -->
+          <div style="width: 35%; border-right: 1px solid #334155; padding-right: 12px; display: flex; flex-direction: column; gap: 12px;">
+            <div>
+              <div class="flex-between" style="margin-bottom: 6px;">
+                <span style="font-weight: 700; font-size: 0.85rem; color: #94a3b8;">TEMPLATES</span>
+                <button class="btn btn-emerald btn-sm" onclick="createNewTemplateUI()">➕ New</button>
+              </div>
+              <div id="template-list-container" class="template-selector-list" style="max-height: 140px; overflow-y: auto;"></div>
+            </div>
+
+            <div style="border-top: 1px solid #334155; padding-top: 10px; display: flex; flex-direction: column; gap: 8px; flex: 1; min-height: 0;">
+              <span style="font-weight: 700; font-size: 0.85rem; color: #60a5fa;">🎵 HYMNAL & AUDIO CATALOG</span>
+              <input type="text" id="modal-catalog-search" placeholder="Search audio (e.g. salutation)..." oninput="searchModalCatalog()" style="width: 100%; background: #0f172a; color: white; border: 1px solid #334155; padding: 6px 10px; border-radius: 6px; font-size: 0.8rem;">
+              <div id="modal-catalog-results" style="overflow-y: auto; flex: 1; display: flex; flex-direction: column; gap: 6px; padding-right: 4px;"></div>
+            </div>
           </div>
-          <div style="width: 68%; overflow-y: auto; padding-left: 4px;">
+
+          <!-- RIGHT COLUMN: Template Editor Form -->
+          <div style="width: 65%; overflow-y: auto; padding-left: 4px;">
             <form id="template-edit-form" onsubmit="event.preventDefault(); saveTemplateFromUI();">
               <input type="hidden" id="edit-template-id">
               <div style="margin-bottom: 12px;">
@@ -217,7 +231,7 @@
                   <button type="button" class="btn btn-primary btn-sm" onclick="addCustomSlotUI()">+ Custom Slot</button>
                 </div>
               </div>
-              <p class="subtitle" style="margin-bottom: 10px; font-size: 0.75rem; color: #60a5fa;">💡 Tip: Drag items from the Hymnal Catalog on the left into this list to bind specific audio tracks (e.g. <em>DS3 - Salutation</em>), or drag handles (⋮⋮) to reorder slots.</p>
+              <p class="subtitle" style="margin-bottom: 10px; font-size: 0.75rem; color: #60a5fa;">💡 Tip: Drag audio tracks from the catalog on the left directly onto any slot on the right to bind specific audio (e.g. <em>DS3 - Salutation</em>).</p>
               
               <div id="template-slots-editor-list" style="display: flex; flex-direction: column; gap: 8px; margin-bottom: 16px; min-height: 120px;" ondragover="onTemplateListDragOver(event)" ondrop="onTemplateListDrop(event)"></div>
               <div class="flex-between">
