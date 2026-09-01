@@ -282,34 +282,56 @@ function createDraftServiceLocally(presetVal = 'DS2') {
   const dateVal = document.getElementById('service-date-input')?.value || new Date().toISOString().split('T')[0];
   const dayVal = document.getElementById('liturgical-day-input')?.value || '';
 
-  let tmplItems = [];
+  let rawItems = [];
   const tmpl = availableTemplates.find(t => t.name === presetVal);
-  if (tmpl && tmpl.items) {
-    tmplItems = tmpl.items.map((it, idx) => ({
-      slot_name: it.slot_name,
-      item_title: it.item_title || it.slot_name,
-      match_term: it.match_term,
-      hymn_id: null,
-      sequence_order: idx + 1,
-      file_path: ""
-    }));
+  if (tmpl && tmpl.items && tmpl.items.length > 0) {
+    rawItems = tmpl.items;
   } else {
-    tmplItems = [
-      { slot_name: "Opening Hymn", item_title: "Invocation / Opening Hymn", match_term: "HYMN_SLOT", hymn_id: null, sequence_order: 1, file_path: "" },
-      { slot_name: "Kyrie", item_title: "Kyrie", match_term: "DS2 - Kyrie", hymn_id: null, sequence_order: 2, file_path: "" },
-      { slot_name: "Gloria", item_title: "Gloria in Excelsis", match_term: "DS2 - Gloria in Excelsis", hymn_id: null, sequence_order: 3, file_path: "" },
-      { slot_name: "Salutation", item_title: "Salutation", match_term: "DS2 - Salutation", hymn_id: null, sequence_order: 4, file_path: "" },
-      { slot_name: "Collect", item_title: "Collect of the Day", match_term: "DS2 - Collect of the Day", hymn_id: null, sequence_order: 5, file_path: "" },
-      { slot_name: "Hymn of the Day", item_title: "Hymn of the Day", match_term: "HYMN_SLOT", hymn_id: null, sequence_order: 6, file_path: "" },
-      { slot_name: "Offertory", item_title: "Offertory", match_term: "DS2 - Offertory", hymn_id: null, sequence_order: 7, file_path: "" },
-      { slot_name: "Sanctus", item_title: "Sanctus", match_term: "DS2 - Sanctus", hymn_id: null, sequence_order: 8, file_path: "" },
-      { slot_name: "Agnus Dei", item_title: "Agnus Dei", match_term: "DS2 - Agnus Dei", hymn_id: null, sequence_order: 9, file_path: "" },
-      { slot_name: "Distribution 1", item_title: "Distribution Hymn 1", match_term: "HYMN_SLOT", hymn_id: null, sequence_order: 10, file_path: "" },
-      { slot_name: "Distribution 2", item_title: "Distribution Hymn 2", match_term: "HYMN_SLOT", hymn_id: null, sequence_order: 11, file_path: "" },
-      { slot_name: "Nunc Dimittis", item_title: "Nunc Dimittis", match_term: "DS2 - Nunc Dimittis", hymn_id: null, sequence_order: 12, file_path: "" },
-      { slot_name: "Closing Hymn", item_title: "Closing Hymn", match_term: "HYMN_SLOT", hymn_id: null, sequence_order: 13, file_path: "" }
+    rawItems = [
+      { slot_name: "Opening Hymn", item_title: "Invocation / Opening Hymn", match_term: "HYMN_SLOT" },
+      { slot_name: "Kyrie", item_title: "Kyrie", match_term: `${presetVal} - Kyrie` },
+      { slot_name: "Gloria", item_title: "Gloria in Excelsis", match_term: `${presetVal} - Gloria in Excelsis` },
+      { slot_name: "Salutation", item_title: "Salutation", match_term: `${presetVal} - Salutation` },
+      { slot_name: "Collect", item_title: "Collect of the Day", match_term: `${presetVal} - Collect of the Day` },
+      { slot_name: "Hymn of the Day", item_title: "Hymn of the Day", match_term: "HYMN_SLOT" },
+      { slot_name: "Offertory", item_title: "Offertory", match_term: `${presetVal} - Offertory` },
+      { slot_name: "Sanctus", item_title: "Sanctus", match_term: `${presetVal} - Sanctus` },
+      { slot_name: "Agnus Dei", item_title: "Agnus Dei", match_term: `${presetVal} - Agnus Dei` },
+      { slot_name: "Distribution 1", item_title: "Distribution Hymn 1", match_term: "HYMN_SLOT" },
+      { slot_name: "Distribution 2", item_title: "Distribution Hymn 2", match_term: "HYMN_SLOT" },
+      { slot_name: "Nunc Dimittis", item_title: "Nunc Dimittis", match_term: `${presetVal} - Nunc Dimittis` },
+      { slot_name: "Closing Hymn", item_title: "Closing Hymn", match_term: "HYMN_SLOT" }
     ];
   }
+
+  const tmplItems = rawItems.map((it, idx) => {
+    const isHymnSlot = !it.match_term || it.match_term === 'HYMN_SLOT';
+    let hymnId = null;
+    let filePath = "";
+    let itemTitle = it.item_title || it.slot_name;
+
+    if (!isHymnSlot) {
+      const match = currentHymns.find(h => {
+        const titleLower = (h.title || '').toLowerCase();
+        const termLower = (it.match_term || '').toLowerCase();
+        return titleLower === termLower || titleLower.includes(termLower) || termLower.includes(titleLower);
+      });
+      if (match) {
+        hymnId = match.id;
+        filePath = match.file_path;
+        itemTitle = match.title;
+      }
+    }
+
+    return {
+      slot_name: it.slot_name,
+      item_title: itemTitle,
+      match_term: it.match_term,
+      hymn_id: hymnId,
+      sequence_order: idx + 1,
+      file_path: filePath
+    };
+  });
 
   currentService = {
     id: null,
@@ -331,7 +353,8 @@ function createNewService() {
 }
 
 function changeSettingPreset() {
-  const presetVal = document.getElementById('preset-select')?.value || 'DS2';
+  const select = document.getElementById('preset-select');
+  const presetVal = select ? select.value : 'DS2';
   createDraftServiceLocally(presetVal);
 }
 
