@@ -30,12 +30,20 @@ def init_db(db_path=DEFAULT_DB_PATH):
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 service_date TEXT NOT NULL,
                 title TEXT NOT NULL,
+                liturgical_day TEXT,
                 setting_preset TEXT,
                 liturgical_color TEXT,
                 notes TEXT,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             );
         """)
+        
+        # Check if liturgical_day column exists (migration for existing DBs)
+        cursor.execute("PRAGMA table_info(services)")
+        cols = [col['name'] for col in cursor.fetchall()]
+        if 'liturgical_day' not in cols:
+            cursor.execute("ALTER TABLE services ADD COLUMN liturgical_day TEXT")
+
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS service_items (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -47,6 +55,27 @@ def init_db(db_path=DEFAULT_DB_PATH):
                 file_path TEXT NOT NULL,
                 FOREIGN KEY (service_id) REFERENCES services(id) ON DELETE CASCADE,
                 FOREIGN KEY (hymn_id) REFERENCES hymns(id)
+            );
+        """)
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS service_templates (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL UNIQUE,
+                description TEXT,
+                is_builtin INTEGER DEFAULT 0,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
+        """)
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS template_items (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                template_id INTEGER NOT NULL,
+                slot_name TEXT NOT NULL,
+                match_term TEXT,
+                item_title TEXT NOT NULL,
+                sequence_order INTEGER NOT NULL,
+                is_hymn_slot INTEGER DEFAULT 0,
+                FOREIGN KEY (template_id) REFERENCES service_templates(id) ON DELETE CASCADE
             );
         """)
         conn.commit()

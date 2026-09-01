@@ -48,3 +48,20 @@ def test_db_init_and_hymns_crud(tmp_path):
     single_hymn = get_hymn_by_id(h_id, db_path=db_path)
     assert single_hymn is not None
     assert single_hymn['title'] == 'The advent of our King'
+
+def test_template_tables_and_service_columns(tmp_path):
+    db_path = str(tmp_path / "test_templates_schema.db")
+    init_db(db_path)
+    
+    with get_db_connection(db_path) as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='service_templates'")
+        assert cursor.fetchone() is not None
+        
+        cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='template_items'")
+        assert cursor.fetchone() is not None
+        
+        cursor.execute("PRAGMA table_info(services)")
+        cols = [col['name'] for col in cursor.fetchall()]
+        assert 'liturgical_day' in cols
+

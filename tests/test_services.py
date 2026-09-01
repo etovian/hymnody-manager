@@ -75,3 +75,50 @@ def test_update_service_items(tmp_path):
     updated_details = get_service_details(service_id, db_path=db_path)
     assert updated_details['items'][0]['hymn_id'] == 1
     assert updated_details['items'][0]['item_title'] == "LSB 331 - The advent of our King"
+
+def test_seed_templates_and_corrected_ds3(tmp_path):
+    from src.services import seed_templates_if_empty, list_templates, get_template_by_name, update_service_metadata
+    db_path = str(tmp_path / "templates_test.db")
+    init_db(db_path)
+    seed_templates_if_empty(db_path)
+    
+    templates = list_templates(db_path)
+    assert len(templates) >= 7
+    
+    ds3 = get_template_by_name("DS3", db_path)
+    assert ds3 is not None
+    
+    items = ds3['items']
+    salutation = next((i for i in items if "Salutation" in i['item_title'] or "Salutation" in i['slot_name']), None)
+    assert salutation is not None
+    
+    collect_amen = next((i for i in items if "Amen" in i['item_title'] or "Amen" in i['slot_name']), None)
+    assert collect_amen is not None
+
+def test_update_service_metadata(tmp_path):
+    from src.services import update_service_metadata
+    db_path = str(tmp_path / "metadata_test.db")
+    init_db(db_path)
+    
+    service_id = create_service_from_preset(
+        title="Original Service",
+        service_date="2026-09-01",
+        setting_preset="DS3",
+        db_path=db_path
+    )
+    
+    update_service_metadata(
+        service_id=service_id,
+        service_date="2026-09-06",
+        liturgical_day="15th Sunday after Trinity",
+        title="Trinity Worship",
+        notes="Guest organist",
+        db_path=db_path
+    )
+    
+    details = get_service_details(service_id, db_path=db_path)
+    assert details['service_date'] == "2026-09-06"
+    assert details['liturgical_day'] == "15th Sunday after Trinity"
+    assert details['title'] == "Trinity Worship"
+    assert details['notes'] == "Guest organist"
+

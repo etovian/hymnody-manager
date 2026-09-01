@@ -54,3 +54,46 @@ def test_full_api_workflow(tmp_path):
     zip_res = client.get(f"/api/services/{srv_id}/export/zip")
     assert zip_res.status_code == 200
     assert zip_res.headers["content-type"] == "application/zip"
+
+def test_template_and_metadata_api_endpoints(tmp_path):
+    db_path = str(tmp_path / "api_templates_test.db")
+    os.environ["HYMNODY_DB_PATH"] = db_path
+    init_db(db_path)
+    
+    # 1. Get templates list
+    res = client.get("/api/templates")
+    assert res.status_code == 200
+    templates = res.json()
+    assert len(templates) >= 7
+    
+    # 2. Update service metadata
+    srv_res = client.post("/api/services", json={
+        "title": "Initial Service",
+        "service_date": "2026-09-01",
+        "setting_preset": "DS3"
+    })
+    srv_id = srv_res.json()["id"]
+    
+    meta_res = client.put(f"/api/services/{srv_id}/metadata", json={
+        "service_date": "2026-09-06",
+        "liturgical_day": "15th Sunday after Trinity",
+        "title": "Trinity Service"
+    })
+    assert meta_res.status_code == 200
+    srv_data = meta_res.json()
+    assert srv_data["service_date"] == "2026-09-06"
+    assert srv_data["liturgical_day"] == "15th Sunday after Trinity"
+    assert srv_data["title"] == "Trinity Service"
+    
+    # 3. Duplicate Service
+    dup_res = client.post(f"/api/services/{srv_id}/duplicate", json={"new_date": "2026-09-13"})
+    assert dup_res.status_code == 200
+    dup_data = dup_res.json()
+    assert dup_data["service_date"] == "2026-09-13"
+    assert "Copy" in dup_data["title"]
+    
+    # 4. Analytics
+    ana_res = client.get("/api/analytics/hymns")
+    assert ana_res.status_code == 200
+    assert isinstance(ana_res.json(), list)
+

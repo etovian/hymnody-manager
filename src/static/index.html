@@ -57,7 +57,7 @@
         <div class="service-header">
           <div class="flex-between mb-2 flex-wrap gap-2">
             <div>
-              <div class="flex-items-center gap-2">
+              <div class="flex-items-center gap-2" style="flex-wrap: wrap;">
                 <h2 id="service-title-display" style="font-size: 1.15rem; font-weight: 700; display: inline;">Service Plan: Loading...</h2>
                 
                 <!-- Rubric Conformance Status Badge & Popover -->
@@ -75,22 +75,36 @@
             </div>
 
             <div class="btn-group">
+              <button class="btn btn-primary" onclick="openServicesExplorer()">📂 Services Explorer</button>
+              <button class="btn btn-primary" onclick="openTemplateEditor()">⚙️ Manage Templates</button>
               <button class="btn btn-emerald" onclick="exportMobileZip()">📦 Export Mobile Zip</button>
               <button class="btn btn-primary" onclick="createNewService()">➕ New Service</button>
             </div>
           </div>
 
-          <div class="preset-selector">
-            <label style="font-weight: 600;">Divine Service Setting:</label>
-            <select id="preset-select" onchange="changeSettingPreset()">
-              <option value="DS2" selected>Divine Service Setting Two (DS2)</option>
-              <option value="DS1">Divine Service Setting One (DS1)</option>
-              <option value="DS3">Divine Service Setting Three (DS3)</option>
-              <option value="DS4">Divine Service Setting Four (DS4)</option>
-              <option value="DS5">Divine Service Setting Five (DS5)</option>
-              <option value="Matins">Matins</option>
-              <option value="Vespers">Vespers</option>
-            </select>
+          <div class="preset-selector flex-between" style="flex-wrap: wrap; gap: 12px;">
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <label style="font-weight: 600;">Setting:</label>
+              <select id="preset-select" onchange="changeSettingPreset()">
+                <option value="DS2" selected>DS2</option>
+                <option value="DS1">DS1</option>
+                <option value="DS3">DS3</option>
+                <option value="DS4">DS4</option>
+                <option value="DS5">DS5</option>
+                <option value="Matins">Matins</option>
+                <option value="Vespers">Vespers</option>
+              </select>
+            </div>
+            
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <label style="font-weight: 600;">Date:</label>
+              <input type="date" id="service-date-input" onchange="updateServiceMetadataFromUI()" style="background: #0f172a; color: white; border: 1px solid #334155; padding: 4px 8px; border-radius: 6px; font-size: 0.8rem;">
+            </div>
+
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <label style="font-weight: 600;">Liturgical Day:</label>
+              <input type="text" id="liturgical-day-input" placeholder="e.g. 15th Sunday after Trinity" onchange="updateServiceMetadataFromUI()" style="background: #0f172a; color: white; border: 1px solid #334155; padding: 4px 8px; border-radius: 6px; font-size: 0.8rem; width: 180px;">
+            </div>
           </div>
         </div>
 
@@ -150,6 +164,67 @@
       </div>
     </section>
 
+    <!-- SERVICES EXPLORER MODAL -->
+    <div id="services-explorer-modal" class="modal-backdrop hidden">
+      <div class="modal-card">
+        <div class="modal-header">
+          <h3 style="font-size: 1.15rem; font-weight: 700;">📂 Services Explorer</h3>
+          <button class="btn-close" onclick="closeServicesExplorer()">✕</button>
+        </div>
+        <div class="modal-body">
+          <div class="explorer-filter-bar">
+            <input type="text" id="explorer-search" placeholder="Search by date, title, or liturgical day..." oninput="renderServicesExplorerList()" style="flex: 1; background: #0f172a; color: white; border: 1px solid #334155; padding: 8px 12px; border-radius: 6px;">
+            <div class="filter-pills" style="margin-bottom: 0;">
+              <button class="pill active" id="explorer-filter-all" onclick="setExplorerFilter('all')">All</button>
+              <button class="pill" id="explorer-filter-upcoming" onclick="setExplorerFilter('upcoming')">Upcoming</button>
+              <button class="pill" id="explorer-filter-past" onclick="setExplorerFilter('past')">Past</button>
+            </div>
+          </div>
+          <div id="services-explorer-list" class="explorer-grid">
+            <!-- Dynamically populated -->
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- TEMPLATE EDITOR MODAL -->
+    <div id="template-editor-modal" class="modal-backdrop hidden">
+      <div class="modal-card" style="max-width: 900px;">
+        <div class="modal-header">
+          <h3 style="font-size: 1.15rem; font-weight: 700;">⚙️ Manage Worship Service Templates</h3>
+          <button class="btn-close" onclick="closeTemplateEditor()">✕</button>
+        </div>
+        <div class="modal-body" style="display: flex; gap: 16px; max-height: 550px;">
+          <div style="width: 32%; border-right: 1px solid #334155; padding-right: 12px; display: flex; flex-direction: column; gap: 8px;">
+            <button class="btn btn-emerald btn-sm" onclick="createNewTemplateUI()">➕ New Template</button>
+            <div id="template-list-container" class="template-selector-list" style="overflow-y: auto; flex: 1;"></div>
+          </div>
+          <div style="width: 68%; overflow-y: auto; padding-left: 4px;">
+            <form id="template-edit-form" onsubmit="event.preventDefault(); saveTemplateFromUI();">
+              <input type="hidden" id="edit-template-id">
+              <div style="margin-bottom: 12px;">
+                <label style="font-weight: 600; font-size: 0.85rem;">Template Name:</label>
+                <input type="text" id="edit-template-name" required style="width: 100%; background: #0f172a; color: white; border: 1px solid #334155; padding: 6px 10px; border-radius: 6px; font-size: 0.85rem; margin-top: 4px;">
+              </div>
+              <div style="margin-bottom: 12px;">
+                <label style="font-weight: 600; font-size: 0.85rem;">Description:</label>
+                <input type="text" id="edit-template-desc" style="width: 100%; background: #0f172a; color: white; border: 1px solid #334155; padding: 6px 10px; border-radius: 6px; font-size: 0.85rem; margin-top: 4px;">
+              </div>
+              <div class="flex-between" style="margin-bottom: 8px;">
+                <h4 style="font-size: 0.9rem; font-weight: 700;">Template Ordinaries & Slots</h4>
+                <button type="button" class="btn btn-primary" onclick="addTemplateSlotUI()">+ Add Slot</button>
+              </div>
+              <div id="template-slots-editor-list" style="display: flex; flex-direction: column; gap: 8px; margin-bottom: 16px;"></div>
+              <div class="flex-between">
+                <button type="button" id="btn-delete-template" class="btn btn-danger-text" onclick="deleteTemplateUI()">Delete Template</button>
+                <button type="submit" class="btn btn-emerald">Save Template</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- PERSISTENT AUDIO PLAYER BAR -->
     <footer id="desktop-player-bar" class="player-bar">
       <div class="player-left">
@@ -185,3 +260,4 @@
   <script src="/static/app.js"></script>
 </body>
 </html>
+

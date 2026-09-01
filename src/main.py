@@ -6,7 +6,12 @@ from fastapi.staticfiles import StaticFiles
 
 from src.database import init_db, save_hymns, search_hymns, get_hymn_by_id
 from src.scanner import scan_hymns_directory
-from src.services import create_service_from_preset, get_service_details, update_service_items, list_services, validate_service_rubric
+from src.services import (
+    create_service_from_preset, get_service_details, update_service_items,
+    list_services, validate_service_rubric, update_service_metadata,
+    delete_service, duplicate_service, list_templates, get_template_by_id,
+    save_template, delete_template, get_hymn_usage_analytics
+)
 from src.exporter import export_service_zip
 
 def get_db_path():
@@ -88,6 +93,43 @@ def stream_hymn_audio(hymn_id: int, request: Request):
     }
     return StreamingResponse(iterfile(), status_code=206, headers=headers)
 
+@app.get("/api/templates")
+def api_list_templates():
+    return list_templates(db_path=get_db_path())
+
+@app.get("/api/templates/{template_id}")
+def api_get_template(template_id: int):
+    t = get_template_by_id(template_id, db_path=get_db_path())
+    if not t:
+        raise HTTPException(status_code=404, detail="Template not found")
+    return t
+
+@app.post("/api/templates")
+def api_create_template(payload: dict):
+    t_id = save_template(
+        name=payload.get('name'),
+        description=payload.get('description', ''),
+        items=payload.get('items', []),
+        db_path=get_db_path()
+    )
+    return get_template_by_id(t_id, db_path=get_db_path())
+
+@app.put("/api/templates/{template_id}")
+def api_update_template(template_id: int, payload: dict):
+    t_id = save_template(
+        name=payload.get('name'),
+        description=payload.get('description', ''),
+        items=payload.get('items', []),
+        template_id=template_id,
+        db_path=get_db_path()
+    )
+    return get_template_by_id(t_id, db_path=get_db_path())
+
+@app.delete("/api/templates/{template_id}")
+def api_delete_template(template_id: int):
+    delete_template(template_id, db_path=get_db_path())
+    return {"status": "success"}
+
 @app.get("/api/services")
 def api_list_services():
     db_path = get_db_path()
@@ -101,6 +143,7 @@ def api_create_service(payload: dict):
         service_date=payload.get('service_date', '2026-08-30'),
         setting_preset=payload.get('setting_preset', 'DS2'),
         liturgical_color=payload.get('liturgical_color', 'Green'),
+        liturgical_day=payload.get('liturgical_day', ''),
         notes=payload.get('notes', ''),
         db_path=db_path
     )
@@ -113,6 +156,32 @@ def api_get_service(service_id: int):
     if not srv:
         raise HTTPException(status_code=404, detail="Service not found")
     return srv
+
+@app.put("/api/services/{service_id}/metadata")
+def api_update_service_metadata(service_id: int, payload: dict):
+    db_path = get_db_path()
+    update_service_metadata(
+        service_id=service_id,
+        service_date=payload.get('service_date'),
+        liturgical_day=payload.get('liturgical_day'),
+        title=payload.get('title'),
+        notes=payload.get('notes'),
+        db_path=db_path
+    )
+    return get_service_details(service_id, db_path=db_path)
+
+@app.post("/api/services/{service_id}/duplicate")
+def api_duplicate_service(service_id: int, payload: dict = Body({})):
+    db_path = get_db_path()
+    new_id = duplicate_service(service_id, new_date=payload.get('new_date'), db_path=db_path)
+    if not new_id:
+        raise HTTPException(status_code=404, detail="Service not found")
+    return get_service_details(new_id, db_path=db_path)
+
+@app.delete("/api/services/{service_id}")
+def api_delete_service(service_id: int):
+    delete_service(service_id, db_path=get_db_path())
+    return {"status": "success"}
 
 @app.get("/api/services/{service_id}/rubric")
 def api_get_service_rubric(service_id: int):
@@ -137,6 +206,10 @@ def api_export_service_zip(service_id: int):
         headers={"Content-Disposition": f"attachment; filename=service_{service_id}.zip"}
     )
 
+@app.get("/api/analytics/hymns")
+def api_get_hymn_analytics():
+    return get_hymn_usage_analytics(db_path=get_db_path())
+
 # Static files mount
 static_dir = os.path.join(os.path.dirname(__file__), "static")
 if os.path.exists(static_dir):
@@ -148,3 +221,4 @@ def read_index():
     if os.path.exists(index_file):
         return FileResponse(index_file)
     return {"message": "Hymnody Manager API is running"}
+

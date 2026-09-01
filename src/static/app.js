@@ -7,12 +7,18 @@ let isPlaying = false;
 let activeSeason = '';
 let draggedHymnId = null;
 let draggedItemIndex = null;
+let activeDragMode = null; // 'insert-above', 'insert-below', or 'replace'
 let currentRubricStatus = null;
+let allSavedServices = [];
+let explorerFilterMode = 'all';
+let availableTemplates = [];
+let selectedTemplateForEdit = null;
 
 const audioPlayer = document.getElementById('main-audio-player');
 
 document.addEventListener('DOMContentLoaded', () => {
   fetchHymns();
+  loadTemplatesUI();
   fetchOrCreateService();
   setupAudioListeners();
 });
@@ -102,46 +108,81 @@ function onHymnDragStart(e, hymnId) {
   e.dataTransfer.setData('text/plain', JSON.stringify({ type: 'catalog', hymnId }));
 }
 
-function onDragOver(e) {
-  e.preventDefault();
-  e.currentTarget.classList.add('drag-over');
-}
-
-function onDragLeave(e) {
-  e.currentTarget.classList.remove('drag-over');
-}
-
-function onHymnDrop(e, targetIndex) {
-  e.preventDefault();
-  e.currentTarget.classList.remove('drag-over');
-
-  if (draggedHymnId !== null) {
-    // Catalog to slot drop
-    assignHymnToSlot(draggedHymnId, targetIndex);
-    draggedHymnId = null;
-  } else if (draggedItemIndex !== null && draggedItemIndex !== targetIndex) {
-    // In-list reorder drop
-    reorderServiceItems(draggedItemIndex, targetIndex);
-    draggedItemIndex = null;
-  }
-}
-
-// In-List Item Drag Handlers
 function onItemDragStart(e, itemIndex) {
   draggedItemIndex = itemIndex;
   draggedHymnId = null;
   e.dataTransfer.setData('text/plain', JSON.stringify({ type: 'item', itemIndex }));
 }
 
-function reorderServiceItems(fromIndex, toIndex) {
-  if (!currentService || !currentService.items) return;
-  const items = currentService.items;
-  const [movedItem] = items.splice(fromIndex, 1);
-  items.splice(toIndex, 0, movedItem);
+function onDragOver(e) {
+  e.preventDefault();
+  const rect = e.currentTarget.getBoundingClientRect();
+  const y = e.clientY - rect.top;
+  const pct = y / rect.height;
 
-  // Update sequence order
-  items.forEach((item, idx) => item.sequence_order = idx + 1);
-  syncServiceItems();
+  e.currentTarget.classList.remove('drag-insert-above', 'drag-insert-below', 'drag-replace');
+
+  if (pct < 0.25) {
+    activeDragMode = 'insert-above';
+    e.currentTarget.classList.add('drag-insert-above');
+  } else if (pct > 0.75) {
+    activeDragMode = 'insert-below';
+    e.currentTarget.classList.add('drag-insert-below');
+  } else {
+    activeDragMode = 'replace';
+    e.currentTarget.classList.add('drag-replace');
+  }
+}
+
+function onDragLeave(e) {
+  e.currentTarget.classList.remove('drag-insert-above', 'drag-insert-below', 'drag-replace');
+}
+
+function onHymnDrop(e, targetIndex) {
+  e.preventDefault();
+  e.currentTarget.classList.remove('drag-insert-above', 'drag-insert-below', 'drag-replace');
+
+  const mode = activeDragMode || 'replace';
+  activeDragMode = null;
+
+  if (draggedHymnId !== null) {
+    const hymn = currentHymns.find(h => h.id === draggedHymnId);
+    if (!hymn || !currentService) return;
+    const newTrack = {
+      service_id: currentService.id,
+      hymn_id: hymn.id,
+      item_title: hymn.hymn_number ? `LSB ${hymn.hymn_number} - ${hymn.title}` : hymn.title,
+      slot_name: "Selected Hymn",
+      file_path: hymn.file_path
+    };
+
+    if (mode === 'replace') {
+      assignHymnToSlot(draggedHymnId, targetIndex);
+    } else if (mode === 'insert-above') {
+      currentService.items.splice(targetIndex, 0, newTrack);
+      syncServiceItems();
+    } else if (mode === 'insert-below') {
+      currentService.items.splice(targetIndex + 1, 0, newTrack);
+      syncServiceItems();
+    }
+    draggedHymnId = null;
+  } else if (draggedItemIndex !== null) {
+    if (draggedItemIndex === targetIndex && mode === 'replace') return;
+    const items = currentService.items;
+    const [movedItem] = items.splice(draggedItemIndex, 1);
+    
+    let destIndex = targetIndex;
+    if (mode === 'insert-below') {
+      destIndex = targetIndex + (draggedItemIndex < targetIndex ? 0 : 1);
+    } else if (mode === 'insert-above') {
+      destIndex = targetIndex - (draggedItemIndex < targetIndex ? 1 : 0);
+      if (destIndex < 0) destIndex = 0;
+    }
+    
+    items.splice(destIndex, 0, movedItem);
+    syncServiceItems();
+    draggedItemIndex = null;
+  }
 }
 
 function assignHymnToSlot(hymnId, slotIndex) {
@@ -157,11 +198,9 @@ function assignHymnToSlot(hymnId, slotIndex) {
   syncServiceItems();
 }
 
-// Remove Service Item
 function removeServiceItem(itemIndex) {
   if (!currentService || !currentService.items) return;
   currentService.items.splice(itemIndex, 1);
-  currentService.items.forEach((item, idx) => item.sequence_order = idx + 1);
   syncServiceItems();
 }
 
@@ -182,14 +221,19 @@ async function fetchOrCreateService() {
 
 async function createNewService() {
   try {
+    const dateVal = document.getElementById('service-date-input').value || new Date().toISOString().split('T')[0];
+    const dayVal = document.getElementById('liturgical-day-input').value || '';
+    const presetVal = document.getElementById('preset-select').value || 'DS2';
+
     const res = await fetch('/api/services', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         title: "Sunday Worship Service",
-        service_date: new Date().toISOString().split('T')[0],
-        setting_preset: document.getElementById('preset-select').value || 'DS2',
-        liturgical_color: "Blue"
+        service_date: dateVal,
+        liturgical_day: dayVal,
+        setting_preset: presetVal,
+        liturgical_color: "Green"
       })
     });
     currentService = await res.json();
@@ -209,6 +253,27 @@ async function loadService(serviceId) {
   }
 }
 
+async function updateServiceMetadataFromUI() {
+  if (!currentService) return;
+  const dateVal = document.getElementById('service-date-input').value;
+  const dayVal = document.getElementById('liturgical-day-input').value;
+
+  try {
+    const res = await fetch(`/api/services/${currentService.id}/metadata`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        service_date: dateVal,
+        liturgical_day: dayVal
+      })
+    });
+    currentService = await res.json();
+    renderService(currentService);
+  } catch (err) {
+    console.error("Error updating service metadata:", err);
+  }
+}
+
 async function changeSettingPreset() {
   if (!currentService) return;
   await createNewService();
@@ -221,10 +286,17 @@ async function restoreOfficialPreset() {
 }
 
 function renderService(service) {
+  const subtitle = `${service.service_date}${service.liturgical_day ? ' • ' + service.liturgical_day : ''} | Setting: ${service.setting_preset}`;
   document.getElementById('service-title-display').textContent = `Service Plan: ${service.title}`;
-  document.getElementById('service-subtitle-display').textContent = `Date: ${service.service_date} | Setting: ${service.setting_preset}`;
+  document.getElementById('service-subtitle-display').textContent = subtitle;
   document.getElementById('mobile-service-title').textContent = service.title;
-  document.getElementById('mobile-service-subtitle').textContent = `Setting: ${service.setting_preset}`;
+  document.getElementById('mobile-service-subtitle').textContent = subtitle;
+
+  document.getElementById('service-date-input').value = service.service_date || new Date().toISOString().split('T')[0];
+  document.getElementById('liturgical-day-input').value = service.liturgical_day || '';
+  if (service.setting_preset) {
+    document.getElementById('preset-select').value = service.setting_preset;
+  }
 
   const container = document.getElementById('service-items-container');
   const mobilePlaylist = document.getElementById('mobile-playlist-container');
@@ -232,7 +304,6 @@ function renderService(service) {
   mobilePlaylist.innerHTML = '';
 
   (service.items || []).forEach((item, index) => {
-    // Desktop list item with drag handles and drop targets
     const el = document.createElement('div');
     el.className = 'service-item';
     el.setAttribute('draggable', 'true');
@@ -257,7 +328,6 @@ function renderService(service) {
     `;
     container.appendChild(el);
 
-    // Mobile list item
     const mItem = document.createElement('div');
     mItem.className = `mobile-playlist-item ${index === activeTrackIndex ? 'active' : ''}`;
     mItem.onclick = () => playServiceTrack(index);
@@ -285,7 +355,6 @@ function addHymnToService(hymnId) {
       hymn_id: hymn.id,
       item_title: hymn.hymn_number ? `LSB ${hymn.hymn_number} - ${hymn.title}` : hymn.title,
       slot_name: "Selected Hymn",
-      sequence_order: currentService.items.length + 1,
       file_path: hymn.file_path
     });
     syncServiceItems();
@@ -294,6 +363,7 @@ function addHymnToService(hymnId) {
 
 async function syncServiceItems() {
   if (!currentService) return;
+  currentService.items.forEach((item, idx) => item.sequence_order = idx + 1);
   const res = await fetch(`/api/services/${currentService.id}/items`, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
@@ -332,6 +402,293 @@ function updateRubricUI(status) {
 function toggleRubricPopover() {
   const popover = document.getElementById('rubric-popover');
   popover.classList.toggle('hidden');
+}
+
+// Services Explorer Modal Logic
+async function openServicesExplorer() {
+  document.getElementById('services-explorer-modal').classList.remove('hidden');
+  await fetchServicesExplorerList();
+}
+
+function closeServicesExplorer() {
+  document.getElementById('services-explorer-modal').classList.add('hidden');
+}
+
+async function fetchServicesExplorerList() {
+  try {
+    const res = await fetch('/api/services');
+    allSavedServices = await res.json();
+    renderServicesExplorerList();
+  } catch (err) {
+    console.error("Error fetching saved services:", err);
+  }
+}
+
+function setExplorerFilter(mode) {
+  explorerFilterMode = mode;
+  document.getElementById('explorer-filter-all').classList.toggle('active', mode === 'all');
+  document.getElementById('explorer-filter-upcoming').classList.toggle('active', mode === 'upcoming');
+  document.getElementById('explorer-filter-past').classList.toggle('active', mode === 'past');
+  renderServicesExplorerList();
+}
+
+function renderServicesExplorerList() {
+  const query = (document.getElementById('explorer-search').value || '').toLowerCase();
+  const container = document.getElementById('services-explorer-list');
+  container.innerHTML = '';
+  const today = new Date().toISOString().split('T')[0];
+
+  const filtered = allSavedServices.filter(s => {
+    const textMatch = (s.title || '').toLowerCase().includes(query) ||
+                      (s.service_date || '').toLowerCase().includes(query) ||
+                      (s.liturgical_day || '').toLowerCase().includes(query);
+    if (!textMatch) return false;
+
+    if (explorerFilterMode === 'upcoming') {
+      return s.service_date >= today;
+    } else if (explorerFilterMode === 'past') {
+      return s.service_date < today;
+    }
+    return true;
+  });
+
+  if (filtered.length === 0) {
+    container.innerHTML = '<div style="color: #94a3b8; font-size: 0.85rem; padding: 1rem;">No services found matching filters.</div>';
+    return;
+  }
+
+  filtered.forEach(s => {
+    const card = document.createElement('div');
+    card.className = 'explorer-card';
+    card.innerHTML = `
+      <div class="flex-between">
+        <span class="badge">${s.service_date}</span>
+        <span class="subtitle">${s.setting_preset}</span>
+      </div>
+      <div style="font-weight: 700; color: white;">${s.title}</div>
+      <div style="font-size: 0.75rem; color: #60a5fa;">${s.liturgical_day || 'Regular Worship Service'}</div>
+      <div class="flex-between" style="margin-top: 8px;">
+        <button class="btn btn-primary btn-sm" onclick="loadServiceFromExplorer(${s.id})">📂 Open</button>
+        <div style="display: flex; gap: 4px;">
+          <button class="btn btn-primary btn-sm" onclick="duplicateServiceFromExplorer(${s.id})" title="Duplicate">📋</button>
+          <button class="btn-danger-text" onclick="deleteServiceFromExplorer(${s.id})" title="Delete">🗑️</button>
+        </div>
+      </div>
+    `;
+    container.appendChild(card);
+  });
+}
+
+async function loadServiceFromExplorer(serviceId) {
+  closeServicesExplorer();
+  await loadService(serviceId);
+}
+
+async function duplicateServiceFromExplorer(serviceId) {
+  try {
+    const nextWeek = new Date();
+    nextWeek.setDate(nextWeek.getDate() + 7);
+    const dateStr = nextWeek.toISOString().split('T')[0];
+
+    const res = await fetch(`/api/services/${serviceId}/duplicate`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ new_date: dateStr })
+    });
+    const dup = await res.json();
+    closeServicesExplorer();
+    await loadService(dup.id);
+  } catch (err) {
+    console.error("Error duplicating service:", err);
+  }
+}
+
+async function deleteServiceFromExplorer(serviceId) {
+  if (!confirm("Are you sure you want to delete this worship service plan?")) return;
+  try {
+    await fetch(`/api/services/${serviceId}`, { method: 'DELETE' });
+    await fetchServicesExplorerList();
+    if (currentService && currentService.id === serviceId) {
+      await fetchOrCreateService();
+    }
+  } catch (err) {
+    console.error("Error deleting service:", err);
+  }
+}
+
+// Template Editor Modal Logic
+async function openTemplateEditor() {
+  document.getElementById('template-editor-modal').classList.remove('hidden');
+  await loadTemplatesUI();
+}
+
+function closeTemplateEditor() {
+  document.getElementById('template-editor-modal').classList.add('hidden');
+}
+
+async function loadTemplatesUI() {
+  try {
+    const res = await fetch('/api/templates');
+    availableTemplates = await res.json();
+    populatePresetDropdown();
+
+    const listContainer = document.getElementById('template-list-container');
+    listContainer.innerHTML = '';
+
+    availableTemplates.forEach(t => {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = `template-item-btn ${selectedTemplateForEdit && selectedTemplateForEdit.id === t.id ? 'active' : ''}`;
+      btn.onclick = () => selectTemplateUI(t.id);
+      btn.innerHTML = `
+        <span style="font-weight: 700;">${t.name}</span>
+        <span class="subtitle">${t.is_builtin ? 'Built-in' : 'Custom'}</span>
+      `;
+      listContainer.appendChild(btn);
+    });
+
+    if (availableTemplates.length > 0 && !selectedTemplateForEdit) {
+      selectTemplateUI(availableTemplates[0].id);
+    }
+  } catch (err) {
+    console.error("Error loading templates:", err);
+  }
+}
+
+function populatePresetDropdown() {
+  const select = document.getElementById('preset-select');
+  if (!select) return;
+  const currentVal = select.value;
+  select.innerHTML = '';
+  availableTemplates.forEach(t => {
+    const opt = document.createElement('option');
+    opt.value = t.name;
+    opt.textContent = t.name;
+    select.appendChild(opt);
+  });
+  if (currentVal) select.value = currentVal;
+}
+
+function selectTemplateUI(templateId) {
+  const t = availableTemplates.find(item => item.id === templateId);
+  if (!t) return;
+  selectedTemplateForEdit = t;
+
+  document.querySelectorAll('.template-item-btn').forEach(btn => {
+    btn.classList.toggle('active', btn.textContent.includes(t.name));
+  });
+
+  document.getElementById('edit-template-id').value = t.id;
+  document.getElementById('edit-template-name').value = t.name;
+  document.getElementById('edit-template-desc').value = t.description || '';
+  document.getElementById('btn-delete-template').style.display = t.is_builtin ? 'none' : 'inline-block';
+
+  renderTemplateSlotsUI(t.items || []);
+}
+
+function renderTemplateSlotsUI(items) {
+  const container = document.getElementById('template-slots-editor-list');
+  container.innerHTML = '';
+
+  items.forEach((item, idx) => {
+    const row = document.createElement('div');
+    row.style.display = 'flex';
+    row.style.gap = '8px';
+    row.style.alignItems = 'center';
+
+    row.innerHTML = `
+      <span style="font-weight: 700; color: #64748b; width: 20px;">${idx + 1}</span>
+      <input type="text" class="slot-name-input" value="${item.slot_name || ''}" placeholder="Slot Name (e.g. Kyrie)" style="flex: 1; background: #0f172a; color: white; border: 1px solid #334155; padding: 4px 8px; border-radius: 4px; font-size: 0.8rem;">
+      <input type="text" class="match-term-input" value="${item.match_term || ''}" placeholder="Match Term (or HYMN_SLOT)" style="flex: 1; background: #0f172a; color: white; border: 1px solid #334155; padding: 4px 8px; border-radius: 4px; font-size: 0.8rem;">
+      <button type="button" class="btn-danger-text" onclick="removeTemplateSlotUI(${idx})">✕</button>
+    `;
+    container.appendChild(row);
+  });
+}
+
+function addTemplateSlotUI() {
+  if (!selectedTemplateForEdit) return;
+  selectedTemplateForEdit.items = selectedTemplateForEdit.items || [];
+  selectedTemplateForEdit.items.push({
+    slot_name: "New Canticle / Hymn Slot",
+    match_term: "HYMN_SLOT",
+    item_title: "New Slot"
+  });
+  renderTemplateSlotsUI(selectedTemplateForEdit.items);
+}
+
+function removeTemplateSlotUI(index) {
+  if (!selectedTemplateForEdit || !selectedTemplateForEdit.items) return;
+  selectedTemplateForEdit.items.splice(index, 1);
+  renderTemplateSlotsUI(selectedTemplateForEdit.items);
+}
+
+function createNewTemplateUI() {
+  selectedTemplateForEdit = {
+    id: null,
+    name: "New Custom Template",
+    description: "Custom worship order",
+    is_builtin: 0,
+    items: [
+      { slot_name: "Opening Hymn", match_term: "HYMN_SLOT", item_title: "Opening Hymn" },
+      { slot_name: "Kyrie", match_term: "DS2 - Kyrie", item_title: "Kyrie" },
+      { slot_name: "Closing Hymn", match_term: "HYMN_SLOT", item_title: "Closing Hymn" }
+    ]
+  };
+  document.getElementById('edit-template-id').value = '';
+  document.getElementById('edit-template-name').value = selectedTemplateForEdit.name;
+  document.getElementById('edit-template-desc').value = selectedTemplateForEdit.description;
+  document.getElementById('btn-delete-template').style.display = 'none';
+  renderTemplateSlotsUI(selectedTemplateForEdit.items);
+}
+
+async function saveTemplateFromUI() {
+  const idVal = document.getElementById('edit-template-id').value;
+  const nameVal = document.getElementById('edit-template-name').value;
+  const descVal = document.getElementById('edit-template-desc').value;
+
+  const rows = document.querySelectorAll('#template-slots-editor-list > div');
+  const items = [];
+  rows.forEach((r, idx) => {
+    const sName = r.querySelector('.slot-name-input').value;
+    const mTerm = r.querySelector('.match-term-input').value;
+    items.push({
+      slot_name: sName,
+      match_term: mTerm,
+      item_title: sName,
+      sequence_order: idx + 1
+    });
+  });
+
+  const payload = { name: nameVal, description: descVal, items: items };
+  const method = idVal ? 'PUT' : 'POST';
+  const url = idVal ? `/api/templates/${idVal}` : '/api/templates';
+
+  try {
+    const res = await fetch(url, {
+      method: method,
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    const saved = await res.json();
+    selectedTemplateForEdit = saved;
+    await loadTemplatesUI();
+  } catch (err) {
+    console.error("Error saving template:", err);
+  }
+}
+
+async function deleteTemplateUI() {
+  if (!selectedTemplateForEdit || !selectedTemplateForEdit.id) return;
+  if (!confirm(`Are you sure you want to delete template "${selectedTemplateForEdit.name}"?`)) return;
+
+  try {
+    await fetch(`/api/templates/${selectedTemplateForEdit.id}`, { method: 'DELETE' });
+    selectedTemplateForEdit = null;
+    await loadTemplatesUI();
+  } catch (err) {
+    console.error("Error deleting template:", err);
+  }
 }
 
 // Audio Playback & Transport Controls
