@@ -5,7 +5,8 @@ PRESETS = {
         ("Opening Hymn", "HYMN_SLOT", "Invocation / Opening Hymn"),
         ("Kyrie", "DS1 - Kyrie", "Kyrie"),
         ("Gloria", "DS1 - Gloria in Excelsis", "Gloria in Excelsis"),
-        ("Collect", "DS1 - Collect of the Day", "Salutation and Collect"),
+        ("Salutation", "DS1 - Salutation", "Salutation"),
+        ("Collect", "DS1 - Collect of the Day", "Collect of the Day"),
         ("Hymn of the Day", "HYMN_SLOT", "Hymn of the Day"),
         ("Offertory", "DS1 - Offertory", "Offertory"),
         ("Sanctus", "DS1 - Sanctus", "Sanctus"),
@@ -19,7 +20,8 @@ PRESETS = {
         ("Opening Hymn", "HYMN_SLOT", "Invocation / Opening Hymn"),
         ("Kyrie", "DS2 - Kyrie", "Kyrie"),
         ("Gloria", "DS2 - Gloria in Excelsis", "Gloria in Excelsis"),
-        ("Collect", "DS2 - Collect of the Day", "Salutation and Collect"),
+        ("Salutation", "DS2 - Salutation", "Salutation"),
+        ("Collect", "DS2 - Collect of the Day", "Collect of the Day"),
         ("Hymn of the Day", "HYMN_SLOT", "Hymn of the Day"),
         ("Offertory", "DS2 - Offertory", "Offertory"),
         ("Sanctus", "DS2 - Sanctus", "Sanctus"),
@@ -33,7 +35,8 @@ PRESETS = {
         ("Opening Hymn", "HYMN_SLOT", "Invocation / Opening Hymn"),
         ("Kyrie", "DS3 - Kyrie", "Kyrie"),
         ("Gloria", "DS3 - Gloria in Excelsis", "Gloria in Excelsis"),
-        ("Collect", "DS3 - Collect of the Day", "Salutation and Collect"),
+        ("Salutation", "DS3 - Salutation", "Salutation"),
+        ("Collect", "DS3 - Collect of the Day", "Collect of the Day"),
         ("Collect Amen", "DS3 - Collect Amen", "Collect Amen"),
         ("Hymn of the Day", "HYMN_SLOT", "Hymn of the Day"),
         ("Offertory", "DS3 - Offertory", "Offertory"),
@@ -87,23 +90,42 @@ def seed_templates_if_empty(db_path="hymnody.db"):
     with get_db_connection(db_path) as conn:
         cursor = conn.cursor()
         cursor.execute("SELECT COUNT(*) as count FROM service_templates")
-        if cursor.fetchone()['count'] > 0:
-            return
-        
-        for name, slots in PRESETS.items():
-            cursor.execute("""
-                INSERT INTO service_templates (name, description, is_builtin)
-                VALUES (?, ?, 1)
-            """, (name, f"Standard Lutheran Service Book preset {name}"))
-            template_id = cursor.lastrowid
-            
-            for idx, (slot_name, match_term, item_title) in enumerate(slots, start=1):
-                is_hymn = 1 if match_term == "HYMN_SLOT" else 0
+        if cursor.fetchone()['count'] == 0:
+            for name, slots in PRESETS.items():
                 cursor.execute("""
-                    INSERT INTO template_items (template_id, slot_name, match_term, item_title, sequence_order, is_hymn_slot)
-                    VALUES (?, ?, ?, ?, ?, ?)
-                """, (template_id, slot_name, match_term, item_title, idx, is_hymn))
-        conn.commit()
+                    INSERT INTO service_templates (name, description, is_builtin)
+                    VALUES (?, ?, 1)
+                """, (name, f"Standard Lutheran Service Book preset {name}"))
+                template_id = cursor.lastrowid
+                
+                for idx, (slot_name, match_term, item_title) in enumerate(slots, start=1):
+                    is_hymn = 1 if match_term == "HYMN_SLOT" else 0
+                    cursor.execute("""
+                        INSERT INTO template_items (template_id, slot_name, match_term, item_title, sequence_order, is_hymn_slot)
+                        VALUES (?, ?, ?, ?, ?, ?)
+                    """, (template_id, slot_name, match_term, item_title, idx, is_hymn))
+            conn.commit()
+        else:
+            # Check if built-in DS3 template is missing DS3 - Salutation item and refresh built-in templates
+            cursor.execute("""
+                SELECT COUNT(*) as count FROM template_items ti 
+                JOIN service_templates st ON ti.template_id = st.id 
+                WHERE st.name = 'DS3' AND ti.match_term = 'DS3 - Salutation'
+            """)
+            if cursor.fetchone()['count'] == 0:
+                for name, slots in PRESETS.items():
+                    cursor.execute("SELECT id FROM service_templates WHERE name = ? AND is_builtin = 1", (name,))
+                    row = cursor.fetchone()
+                    if row:
+                        t_id = row['id']
+                        cursor.execute("DELETE FROM template_items WHERE template_id = ?", (t_id,))
+                        for idx, (slot_name, match_term, item_title) in enumerate(slots, start=1):
+                            is_hymn = 1 if match_term == "HYMN_SLOT" else 0
+                            cursor.execute("""
+                                INSERT INTO template_items (template_id, slot_name, match_term, item_title, sequence_order, is_hymn_slot)
+                                VALUES (?, ?, ?, ?, ?, ?)
+                            """, (t_id, slot_name, match_term, item_title, idx, is_hymn))
+                conn.commit()
 
 def list_templates(db_path="hymnody.db"):
     seed_templates_if_empty(db_path)

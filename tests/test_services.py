@@ -89,8 +89,8 @@ def test_seed_templates_and_corrected_ds3(tmp_path):
     assert ds3 is not None
     
     items = ds3['items']
-    salutation = next((i for i in items if "Salutation" in i['item_title'] or "Salutation" in i['slot_name']), None)
-    assert salutation is not None
+    ds3_salutation = next((i for i in items if i['match_term'] == "DS3 - Salutation"), None)
+    assert ds3_salutation is not None, "DS3 template must have an item with match_term 'DS3 - Salutation'"
     
     collect_amen = next((i for i in items if "Amen" in i['item_title'] or "Amen" in i['slot_name']), None)
     assert collect_amen is not None
