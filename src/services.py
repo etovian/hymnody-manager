@@ -11,6 +11,7 @@ PRESETS = {
         ("Sanctus", "DS1 - Sanctus", "Sanctus"),
         ("Agnus Dei", "DS1 - Agnus Dei", "Agnus Dei"),
         ("Distribution 1", "HYMN_SLOT", "Distribution Hymn 1"),
+        ("Distribution 2", "HYMN_SLOT", "Distribution Hymn 2"),
         ("Nunc Dimittis", "DS1 - Nunc Dimittis", "Nunc Dimittis"),
         ("Closing Hymn", "HYMN_SLOT", "Closing Hymn")
     ],
@@ -24,6 +25,7 @@ PRESETS = {
         ("Sanctus", "DS2 - Sanctus", "Sanctus"),
         ("Agnus Dei", "DS2 - Agnus Dei", "Agnus Dei"),
         ("Distribution 1", "HYMN_SLOT", "Distribution Hymn 1"),
+        ("Distribution 2", "HYMN_SLOT", "Distribution Hymn 2"),
         ("Nunc Dimittis", "DS2 - Nunc Dimittis", "Nunc Dimittis"),
         ("Closing Hymn", "HYMN_SLOT", "Closing Hymn")
     ],
@@ -38,6 +40,7 @@ PRESETS = {
         ("Sanctus", "DS3 - Sanctus", "Sanctus"),
         ("Agnus Dei", "DS3 - Agnus Dei", "Agnus Dei"),
         ("Distribution 1", "HYMN_SLOT", "Distribution Hymn 1"),
+        ("Distribution 2", "HYMN_SLOT", "Distribution Hymn 2"),
         ("Nunc Dimittis", "DS3 - Nunc Dimittis", "Nunc Dimittis"),
         ("Closing Hymn", "HYMN_SLOT", "Closing Hymn")
     ],
@@ -49,6 +52,7 @@ PRESETS = {
         ("Sanctus", "DS4 - Sanctus", "Sanctus"),
         ("Agnus Dei", "DS4 - Agnus Dei", "Agnus Dei"),
         ("Distribution 1", "HYMN_SLOT", "Distribution Hymn 1"),
+        ("Distribution 2", "HYMN_SLOT", "Distribution Hymn 2"),
         ("Nunc Dimittis", "DS4 - Nunc Dimittis", "Nunc Dimittis"),
         ("Closing Hymn", "HYMN_SLOT", "Closing Hymn")
     ],
@@ -60,6 +64,7 @@ PRESETS = {
         ("Sanctus", "DS5 - Sanctus", "Sanctus"),
         ("Agnus Dei", "DS5 - Agnus Dei", "Agnus Dei"),
         ("Distribution 1", "HYMN_SLOT", "Distribution Hymn 1"),
+        ("Distribution 2", "HYMN_SLOT", "Distribution Hymn 2"),
         ("Nunc Dimittis", "DS5 - Nunc Dimittis", "Nunc Dimittis"),
         ("Closing Hymn", "HYMN_SLOT", "Closing Hymn")
     ],

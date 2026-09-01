@@ -94,6 +94,16 @@ def test_seed_templates_and_corrected_ds3(tmp_path):
     
     collect_amen = next((i for i in items if "Amen" in i['item_title'] or "Amen" in i['slot_name']), None)
     assert collect_amen is not None
+    
+    # Check that DS1 through DS5 templates have two distribution slots
+    for setting in ["DS1", "DS2", "DS3", "DS4", "DS5"]:
+        tmpl = get_template_by_name(setting, db_path)
+        t_items = tmpl['items']
+        dist1 = next((i for i in t_items if "Distribution 1" in i['slot_name'] or "Distribution Hymn 1" in i['item_title']), None)
+        dist2 = next((i for i in t_items if "Distribution 2" in i['slot_name'] or "Distribution Hymn 2" in i['item_title']), None)
+        assert dist1 is not None, f"Missing Distribution 1 in {setting}"
+        assert dist2 is not None, f"Missing Distribution 2 in {setting}"
+
 
 def test_update_service_metadata(tmp_path):
     from src.services import update_service_metadata
