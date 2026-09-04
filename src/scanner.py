@@ -2,6 +2,7 @@ import os
 import glob
 import re
 import struct
+from src.database import normalize_path
 
 def parse_mp4_atoms(filepath):
     with open(filepath, 'rb') as f:
@@ -72,8 +73,10 @@ def parse_mp4_atoms(filepath):
     return parsed
 
 def parse_hymn_file(filepath):
+    filepath = normalize_path(filepath)
     filename = os.path.basename(filepath)
     raw_tags = parse_mp4_atoms(filepath)
+
     
     raw_title = raw_tags.get('©nam', filename.replace('.m4a', ''))
     album = raw_tags.get('©alb', 'The Concordia Organist')
@@ -123,11 +126,45 @@ def parse_hymn_file(filepath):
         elif 457 <= hymn_number <= 490:
             season = "Easter"
         elif 491 <= hymn_number <= 503:
-            season = "Pentecost / Holy Spirit"
-        elif 504 <= hymn_number <= 969:
-            season = "Church Year / General"
-    elif any(kw in filename.lower() for kw in ['kyrie', 'gloria', 'sanctus', 'agnus', 'nunc', 'ds1', 'ds2', 'ds3', 'ds4', 'ds5']):
-        season = "Liturgical"
+            season = "Pentecost"
+        elif 590 <= hymn_number <= 605:
+            season = "Baptism"
+        elif 606 <= hymn_number <= 616:
+            season = "Confession"
+        elif 617 <= hymn_number <= 643:
+            season = "Communion"
+        elif 708 <= hymn_number <= 780:
+            season = "Trust & Comfort"
+        elif 781 <= hymn_number <= 824:
+            season = "Praise"
+        else:
+            season = "General"
+    else:
+        fn = filename.lower()
+        if 'ds1' in fn:
+            season = "DS1"
+        elif 'ds2' in fn:
+            season = "DS2"
+        elif 'ds3' in fn:
+            season = "DS3"
+        elif 'ds4' in fn:
+            season = "DS4"
+        elif 'ds5' in fn:
+            season = "DS5"
+        elif 'ma -' in fn or 'matins' in fn:
+            season = "Matins"
+        elif 've -' in fn or 'vespers' in fn:
+            season = "Vespers"
+        elif 'mp -' in fn or 'morning prayer' in fn:
+            season = "Morning Prayer"
+        elif 'ep -' in fn or 'evening prayer' in fn:
+            season = "Evening Prayer"
+        elif 'co -' in fn or 'compline' in fn:
+            season = "Compline"
+        elif 'pp -' in fn or 'pt -' in fn or 'psalm tone' in fn:
+            season = "Psalm Tones"
+        elif any(kw in fn for kw in ['kyrie', 'gloria', 'sanctus', 'agnus', 'nunc']):
+            season = "Liturgical"
 
     return {
         'file_path': filepath,

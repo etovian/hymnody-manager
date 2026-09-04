@@ -66,3 +66,50 @@ def test_full_application_e2e_workflow(tmp_path):
     index_res = client.get("/")
     assert index_res.status_code == 200
     assert "Hymnody Manager" in index_res.text
+
+
+def test_dual_tab_hymnal_catalog_e2e(tmp_path):
+    db_path = str(tmp_path / "e2e_dual_tab.db")
+    os.environ["HYMNODY_DB_PATH"] = db_path
+    os.environ["MUSIC_DIR"] = r"c:\dev\IdeaProjects\hymnody-manager\music"
+    init_db(db_path)
+
+    # Rescan directory to populate DB
+    scan_res = client.post("/api/scan")
+    assert scan_res.status_code == 200
+
+    # Query category_type=hymn
+    hymns_res = client.get("/api/hymns?category_type=hymn")
+    assert hymns_res.status_code == 200
+    hymns = hymns_res.json()
+    assert len(hymns) > 0
+    assert all(h["hymn_number"] is not None for h in hymns)
+
+    # Query category_type=liturgy
+    liturgy_res = client.get("/api/hymns?category_type=liturgy")
+    assert liturgy_res.status_code == 200
+    liturgy_items = liturgy_res.json()
+    assert len(liturgy_items) > 0
+    assert all(item["hymn_number"] is None for item in liturgy_items)
+
+
+def test_alphabetized_filters_and_sorting(tmp_path):
+    db_path = str(tmp_path / "e2e_sorting.db")
+    os.environ["HYMNODY_DB_PATH"] = db_path
+    os.environ["MUSIC_DIR"] = r"c:\dev\IdeaProjects\hymnody-manager\music"
+    init_db(db_path)
+
+    scan_res = client.post("/api/scan")
+    assert scan_res.status_code == 200
+
+    res = client.get("/api/hymns")
+    assert res.status_code == 200
+    hymns = res.json()
+    assert len(hymns) > 0
+
+    for i in range(len(hymns) - 1):
+        h1 = hymns[i]
+        h2 = hymns[i + 1]
+        assert (h1["disc_number"], h1["track_number"]) <= (h2["disc_number"], h2["track_number"])
+
+

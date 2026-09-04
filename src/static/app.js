@@ -12,11 +12,42 @@ let currentRubricStatus = null;
 let allSavedServices = [];
 let explorerFilterMode = 'all';
 let availableTemplates = [];
-let selectedTemplateForEdit = null;
+let activeCatalogTab = 'hymn';
+const HYMN_SEASONS = [
+  { label: 'All Hymns', value: '' },
+  { label: 'Advent', value: 'Advent' },
+  { label: 'Baptism', value: 'Baptism' },
+  { label: 'Christmas', value: 'Christmas' },
+  { label: 'Communion', value: 'Communion' },
+  { label: 'Confession', value: 'Confession' },
+  { label: 'Easter', value: 'Easter' },
+  { label: 'Epiphany', value: 'Epiphany' },
+  { label: 'General', value: 'General' },
+  { label: 'Lent', value: 'Lent' },
+  { label: 'Pentecost', value: 'Pentecost' },
+  { label: 'Praise', value: 'Praise' },
+  { label: 'Trust & Comfort', value: 'Trust & Comfort' }
+];
+
+const LITURGY_SERVICES = [
+  { label: 'All Services', value: '' },
+  { label: 'Compline', value: 'Compline' },
+  { label: 'DS1', value: 'DS1' },
+  { label: 'DS2', value: 'DS2' },
+  { label: 'DS3', value: 'DS3' },
+  { label: 'DS4', value: 'DS4' },
+  { label: 'DS5', value: 'DS5' },
+  { label: 'Evening Prayer', value: 'Evening Prayer' },
+  { label: 'Matins', value: 'Matins' },
+  { label: 'Morning Prayer', value: 'Morning Prayer' },
+  { label: 'Psalm Tones', value: 'Psalm Tones' },
+  { label: 'Vespers', value: 'Vespers' }
+];
 
 const audioPlayer = document.getElementById('main-audio-player');
 
 document.addEventListener('DOMContentLoaded', () => {
+  renderFilterDropdown();
   fetchHymns();
   loadTemplatesUI();
   fetchOrCreateService();
@@ -49,7 +80,7 @@ function switchView(mode) {
 // Fetch Hymns Catalog
 async function fetchHymns(query = '') {
   try {
-    let url = `/api/hymns?q=${encodeURIComponent(query)}`;
+    let url = `/api/hymns?q=${encodeURIComponent(query)}&category_type=${activeCatalogTab}`;
     if (activeSeason) {
       url += `&season=${encodeURIComponent(activeSeason)}`;
     }
@@ -62,16 +93,38 @@ async function fetchHymns(query = '') {
   }
 }
 
+function switchCatalogTab(tab) {
+  activeCatalogTab = tab;
+  activeSeason = '';
+  const tabHymns = document.getElementById('tab-hymns');
+  const tabLiturgy = document.getElementById('tab-liturgy');
+  if (tabHymns) tabHymns.classList.toggle('active', tab === 'hymn');
+  if (tabLiturgy) tabLiturgy.classList.toggle('active', tab === 'liturgy');
+  renderFilterDropdown();
+  handleSearch();
+}
+
+function renderFilterDropdown() {
+  const select = document.getElementById('season-select');
+  if (!select) return;
+  select.innerHTML = '';
+  const list = activeCatalogTab === 'hymn' ? HYMN_SEASONS : LITURGY_SERVICES;
+  list.forEach(opt => {
+    const el = document.createElement('option');
+    el.value = opt.value;
+    el.textContent = opt.label;
+    el.selected = (activeSeason === opt.value);
+    select.appendChild(el);
+  });
+}
+
 function handleSearch() {
   const q = document.getElementById('search-input').value;
   fetchHymns(q);
 }
 
-function filterSeason(season) {
-  activeSeason = season;
-  document.querySelectorAll('#season-filters .pill').forEach(btn => {
-    btn.classList.toggle('active', btn.textContent === (season || 'All'));
-  });
+function filterSeason(val) {
+  activeSeason = val;
   handleSearch();
 }
 
@@ -270,17 +323,25 @@ async function fetchOrCreateService() {
     if (services.length > 0) {
       await loadService(services[0].id);
     } else {
-      createDraftServiceLocally();
+      await createDraftServiceLocally();
     }
   } catch (err) {
     console.error("Error fetching service:", err);
-    createDraftServiceLocally();
+    await createDraftServiceLocally();
   }
 }
 
-function createDraftServiceLocally(presetVal = 'DS2') {
+async function createDraftServiceLocally(presetVal = 'DS2') {
   const dateVal = document.getElementById('service-date-input')?.value || new Date().toISOString().split('T')[0];
   const dayVal = document.getElementById('liturgical-day-input')?.value || '';
+
+  let allTracks = currentHymns;
+  try {
+    const res = await fetch('/api/hymns');
+    allTracks = await res.json();
+  } catch (err) {
+    console.error("Error fetching all tracks for template matching:", err);
+  }
 
   let rawItems = [];
   const tmpl = availableTemplates.find(t => t.name === presetVal);
@@ -311,7 +372,7 @@ function createDraftServiceLocally(presetVal = 'DS2') {
     let itemTitle = it.item_title || it.slot_name;
 
     if (!isHymnSlot) {
-      const match = currentHymns.find(h => {
+      const match = allTracks.find(h => {
         const titleLower = (h.title || '').toLowerCase();
         const termLower = (it.match_term || '').toLowerCase();
         return titleLower === termLower || titleLower.includes(termLower) || termLower.includes(titleLower);
@@ -347,21 +408,21 @@ function createDraftServiceLocally(presetVal = 'DS2') {
   markServiceDirty();
 }
 
-function createNewService() {
+async function createNewService() {
   const presetVal = document.getElementById('preset-select')?.value || 'DS2';
-  createDraftServiceLocally(presetVal);
+  await createDraftServiceLocally(presetVal);
 }
 
-function changeSettingPreset() {
+async function changeSettingPreset() {
   const select = document.getElementById('preset-select');
   const presetVal = select ? select.value : 'DS2';
-  createDraftServiceLocally(presetVal);
+  await createDraftServiceLocally(presetVal);
 }
 
 async function restoreOfficialPreset() {
   document.getElementById('rubric-popover').classList.add('hidden');
   const presetVal = currentService?.setting_preset || 'DS2';
-  createDraftServiceLocally(presetVal);
+  await createDraftServiceLocally(presetVal);
 }
 
 async function loadService(serviceId) {

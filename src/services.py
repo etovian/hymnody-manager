@@ -36,12 +36,11 @@ PRESETS = {
         ("Kyrie", "DS3 - Kyrie", "Kyrie"),
         ("Gloria", "DS3 - Gloria in Excelsis", "Gloria in Excelsis"),
         ("Salutation", "DS3 - Salutation", "Salutation"),
-        ("Collect", "DS3 - Collect of the Day", "Collect of the Day"),
-        ("Collect Amen", "DS3 - Collect Amen", "Collect Amen"),
+        ("Collect", "DS3 - Collect of the Day", "Collect of the Day (with Amen)"),
         ("Hymn of the Day", "HYMN_SLOT", "Hymn of the Day"),
         ("Offertory", "DS3 - Offertory", "Offertory"),
         ("Sanctus", "DS3 - Sanctus", "Sanctus"),
-        ("Agnus Dei", "DS3 - Agnus Dei", "Agnus Dei"),
+        ("Agnus Dei", "DS3 - Pax Domini_ Amen & Agnus Dei", "Agnus Dei"),
         ("Distribution 1", "HYMN_SLOT", "Distribution Hymn 1"),
         ("Distribution 2", "HYMN_SLOT", "Distribution Hymn 2"),
         ("Nunc Dimittis", "DS3 - Nunc Dimittis", "Nunc Dimittis"),
@@ -50,7 +49,7 @@ PRESETS = {
     "DS4": [
         ("Opening Hymn", "HYMN_SLOT", "Invocation / Opening Hymn"),
         ("Kyrie", "DS4 - Kyrie", "Kyrie"),
-        ("This is the Feast", "DS4 - This Is the Feast", "This is the Feast"),
+        ("This is the Feast", "DS4 - Gloria in Excelsis", "This is the Feast"),
         ("Hymn of the Day", "HYMN_SLOT", "Hymn of the Day"),
         ("Sanctus", "DS4 - Sanctus", "Sanctus"),
         ("Agnus Dei", "DS4 - Agnus Dei", "Agnus Dei"),
@@ -68,20 +67,26 @@ PRESETS = {
         ("Agnus Dei", "DS5 - Agnus Dei", "Agnus Dei"),
         ("Distribution 1", "HYMN_SLOT", "Distribution Hymn 1"),
         ("Distribution 2", "HYMN_SLOT", "Distribution Hymn 2"),
-        ("Nunc Dimittis", "DS5 - Nunc Dimittis", "Nunc Dimittis"),
+        ("Nunc Dimittis", "DS5 - Post-Communion Hymn", "Nunc Dimittis"),
         ("Closing Hymn", "HYMN_SLOT", "Closing Hymn")
     ],
     "Matins": [
         ("Opening Hymn", "HYMN_SLOT", "Invocation Hymn"),
-        ("Venite", "Matins - Venite", "Venite (O Come, Let Us Sing)"),
+        ("Versicles", "MA - Versicles_ Intonation", "Versicles (O Lord, Open My Lips)"),
+        ("Venite", "MA - Antiphon & Venite", "Venite (O Come, Let Us Sing)"),
         ("Office Hymn", "HYMN_SLOT", "Office Hymn"),
-        ("Te Deum", "Matins - Te Deum", "Te Deum Laudamus"),
+        ("Responsory", "MA - Responsory_ Intonation", "Common Responsory"),
+        ("Te Deum", "MA - Te Deum", "Te Deum Laudamus"),
+        ("Benedictus", "MA - Benedictus", "Benedictus (Blessed Be the Lord)"),
+        ("Collect for Grace", "MA - Collect_ Amen", "Collect for Grace"),
+        ("Benedicamus", "MA - Benedicamus", "Benedicamus (Let Us Bless the Lord)"),
+        ("Benediction", "MA - Benediction_ Amen", "Benediction"),
         ("Closing Hymn", "HYMN_SLOT", "Closing Hymn")
     ],
     "Vespers": [
         ("Opening Hymn", "HYMN_SLOT", "Opening Hymn"),
         ("Office Hymn", "HYMN_SLOT", "Office Hymn"),
-        ("Magnificat", "Vespers - Magnificat", "Magnificat (My Soul Magnifies the Lord)"),
+        ("Magnificat", "VE - Magnificat", "Magnificat (My Soul Magnifies the Lord)"),
         ("Closing Hymn", "HYMN_SLOT", "Closing Hymn")
     ]
 }
@@ -106,11 +111,11 @@ def seed_templates_if_empty(db_path="hymnody.db"):
                     """, (template_id, slot_name, match_term, item_title, idx, is_hymn))
             conn.commit()
         else:
-            # Check if built-in DS3 template is missing DS3 - Salutation item and refresh built-in templates
+            # Check if built-in templates need refreshing for updated canticle match terms
             cursor.execute("""
                 SELECT COUNT(*) as count FROM template_items ti 
                 JOIN service_templates st ON ti.template_id = st.id 
-                WHERE st.name = 'DS3' AND ti.match_term = 'DS3 - Salutation'
+                WHERE st.name = 'Matins' AND ti.match_term = 'MA - Versicles_ Intonation'
             """)
             if cursor.fetchone()['count'] == 0:
                 for name, slots in PRESETS.items():
@@ -126,6 +131,9 @@ def seed_templates_if_empty(db_path="hymnody.db"):
                                 VALUES (?, ?, ?, ?, ?, ?)
                             """, (t_id, slot_name, match_term, item_title, idx, is_hymn))
                 conn.commit()
+
+
+
 
 def list_templates(db_path="hymnody.db"):
     seed_templates_if_empty(db_path)

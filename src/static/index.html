@@ -34,17 +34,17 @@
           <span id="catalog-count" class="badge">0 Tracks</span>
         </div>
 
-        <div class="search-box">
-          <input type="text" id="search-input" placeholder="Search hymn #, title, or keyword..." oninput="handleSearch()">
+        <!-- Catalog Mode Tabs: Hymns vs Liturgy -->
+        <div class="catalog-tabs mb-2" style="display: flex; gap: 8px; border-bottom: 1px solid #334155; padding-bottom: 8px;">
+          <button id="tab-hymns" class="tab-btn active" onclick="switchCatalogTab('hymn')" style="flex: 1; padding: 6px 12px; font-size: 0.85rem; font-weight: 700;">🎵 Hymns</button>
+          <button id="tab-liturgy" class="tab-btn" onclick="switchCatalogTab('liturgy')" style="flex: 1; padding: 6px 12px; font-size: 0.85rem; font-weight: 700;">📜 Liturgy</button>
         </div>
 
-        <div class="filter-pills" id="season-filters">
-          <button class="pill active" onclick="filterSeason('')">All</button>
-          <button class="pill" onclick="filterSeason('Advent')">Advent</button>
-          <button class="pill" onclick="filterSeason('Christmas')">Christmas</button>
-          <button class="pill" onclick="filterSeason('Lent')">Lent</button>
-          <button class="pill" onclick="filterSeason('Easter')">Easter</button>
-          <button class="pill" onclick="filterSeason('Liturgical')">Liturgical</button>
+        <div class="search-box mb-2" style="display: flex; gap: 8px;">
+          <input type="text" id="search-input" placeholder="Search hymn #, title, or keyword..." oninput="handleSearch()" style="flex: 1;">
+          <select id="season-select" onchange="filterSeason(this.value)" style="background: #0f172a; color: white; border: 1px solid #334155; padding: 6px 10px; border-radius: 6px; font-size: 0.85rem; cursor: pointer; max-width: 170px;">
+            <!-- Dynamically populated -->
+          </select>
         </div>
 
         <div class="hymn-list" id="hymn-list-container">

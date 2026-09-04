@@ -149,4 +149,147 @@ def test_hymn_slots_are_placeholders_without_default_hymns(tmp_path):
                 assert item['hymn_id'] is None, f"Hymn slot {item['slot_name']} in {setting} should not have a default hymn"
                 assert item['file_path'] == "", f"Hymn slot {item['slot_name']} in {setting} should have an empty file path"
 
+def test_matins_and_vespers_canticles_matching(tmp_path):
+    db_path = str(tmp_path / "matins_vespers_test.db")
+    init_db(db_path)
+    
+    # Save dummy canticles for Matins and Vespers matching actual CPH track titles
+    save_hymns([
+        {
+            'hymn_number': None,
+            'title': 'MA - Antiphon & Venite',
+            'disc_number': 31,
+            'track_number': 4,
+            'album': 'The Concordia Organist',
+            'artist': 'Concordia Publishing House',
+            'year': 2009,
+            'file_path': r'c:\dev\IdeaProjects\hymnody-manager\music\31-04 MA - Antiphon & Venite.m4a',
+            'liturgical_season': 'General'
+        },
+        {
+            'hymn_number': None,
+            'title': 'MA - Te Deum',
+            'disc_number': 31,
+            'track_number': 10,
+            'album': 'The Concordia Organist',
+            'artist': 'Concordia Publishing House',
+            'year': 2009,
+            'file_path': r'c:\dev\IdeaProjects\hymnody-manager\music\31-10 MA - Te Deum.m4a',
+            'liturgical_season': 'General'
+        },
+        {
+            'hymn_number': None,
+            'title': 'VE - Magnificat',
+            'disc_number': 31,
+            'track_number': 27,
+            'album': 'The Concordia Organist',
+            'artist': 'Concordia Publishing House',
+            'year': 2009,
+            'file_path': r'c:\dev\IdeaProjects\hymnody-manager\music\31-27 VE - Magnificat.m4a',
+            'liturgical_season': 'General'
+        }
+    ], db_path)
+    
+    matins_id = create_service_from_preset("Matins Service", "2026-09-01", setting_preset="Matins", db_path=db_path)
+    matins = get_service_details(matins_id, db_path=db_path)
+    
+    venite = next((i for i in matins['items'] if i['slot_name'] == "Venite"), None)
+    te_deum = next((i for i in matins['items'] if i['slot_name'] == "Te Deum"), None)
+    
+    assert venite is not None and venite['hymn_id'] is not None, "Venite should bind to MA - Antiphon & Venite track"
+    assert te_deum is not None and te_deum['hymn_id'] is not None, "Te Deum should bind to MA - Te Deum track"
+
+    vespers_id = create_service_from_preset("Vespers Service", "2026-09-01", setting_preset="Vespers", db_path=db_path)
+    vespers = get_service_details(vespers_id, db_path=db_path)
+    magnificat = next((i for i in vespers['items'] if i['slot_name'] == "Magnificat"), None)
+    assert magnificat is not None and magnificat['hymn_id'] is not None, "Magnificat should bind to VE - Magnificat track"
+
+def test_all_preset_canticles_bind_successfully(tmp_path):
+    from src.services import PRESETS, create_service_from_preset, get_service_details
+    from src.database import save_hymns
+    db_path = str(tmp_path / "all_presets_test.db")
+    init_db(db_path)
+    
+    # Save CPH canticle track titles for DS1-DS5, Matins, Vespers
+    save_hymns([
+        {'hymn_number': None, 'title': 'DS1 - Kyrie_ Intonation', 'disc_number': 30, 'track_number': 1, 'album': 'CPH', 'artist': 'CPH', 'year': 2009, 'file_path': r'c:\music\30-01.m4a', 'liturgical_season': 'Liturgical'},
+        {'hymn_number': None, 'title': 'DS1 - Gloria in Excelsis', 'disc_number': 30, 'track_number': 7, 'album': 'CPH', 'artist': 'CPH', 'year': 2009, 'file_path': r'c:\music\30-07.m4a', 'liturgical_season': 'Liturgical'},
+        {'hymn_number': None, 'title': 'DS1 - Salutation', 'disc_number': 30, 'track_number': 9, 'album': 'CPH', 'artist': 'CPH', 'year': 2009, 'file_path': r'c:\music\30-09.m4a', 'liturgical_season': 'Liturgical'},
+        {'hymn_number': None, 'title': 'DS1 - Collect of the Day_ Amen', 'disc_number': 30, 'track_number': 10, 'album': 'CPH', 'artist': 'CPH', 'year': 2009, 'file_path': r'c:\music\30-10.m4a', 'liturgical_season': 'Liturgical'},
+        {'hymn_number': None, 'title': 'DS1 - Offertory', 'disc_number': 30, 'track_number': 15, 'album': 'CPH', 'artist': 'CPH', 'year': 2009, 'file_path': r'c:\music\30-15.m4a', 'liturgical_season': 'Liturgical'},
+        {'hymn_number': None, 'title': 'DS1 - Sanctus', 'disc_number': 30, 'track_number': 20, 'album': 'CPH', 'artist': 'CPH', 'year': 2009, 'file_path': r'c:\music\30-20.m4a', 'liturgical_season': 'Liturgical'},
+        {'hymn_number': None, 'title': 'DS1 - Agnus Dei', 'disc_number': 30, 'track_number': 23, 'album': 'CPH', 'artist': 'CPH', 'year': 2009, 'file_path': r'c:\music\30-23.m4a', 'liturgical_season': 'Liturgical'},
+        {'hymn_number': None, 'title': 'DS1 - Nunc Dimittis', 'disc_number': 30, 'track_number': 25, 'album': 'CPH', 'artist': 'CPH', 'year': 2009, 'file_path': r'c:\music\30-25.m4a', 'liturgical_season': 'Liturgical'},
+
+        {'hymn_number': None, 'title': 'DS2 - Kyrie_ Intonation', 'disc_number': 30, 'track_number': 30, 'album': 'CPH', 'artist': 'CPH', 'year': 2009, 'file_path': r'c:\music\30-30.m4a', 'liturgical_season': 'Liturgical'},
+        {'hymn_number': None, 'title': 'DS2 - Gloria in Excelsis', 'disc_number': 30, 'track_number': 36, 'album': 'CPH', 'artist': 'CPH', 'year': 2009, 'file_path': r'c:\music\30-36.m4a', 'liturgical_season': 'Liturgical'},
+        {'hymn_number': None, 'title': 'DS2 - Salutation', 'disc_number': 30, 'track_number': 38, 'album': 'CPH', 'artist': 'CPH', 'year': 2009, 'file_path': r'c:\music\30-38.m4a', 'liturgical_season': 'Liturgical'},
+        {'hymn_number': None, 'title': 'DS2 - Collect of the Day_ Amen', 'disc_number': 30, 'track_number': 39, 'album': 'CPH', 'artist': 'CPH', 'year': 2009, 'file_path': r'c:\music\30-39.m4a', 'liturgical_season': 'Liturgical'},
+        {'hymn_number': None, 'title': 'DS2 - Offertory', 'disc_number': 30, 'track_number': 44, 'album': 'CPH', 'artist': 'CPH', 'year': 2009, 'file_path': r'c:\music\30-44.m4a', 'liturgical_season': 'Liturgical'},
+        {'hymn_number': None, 'title': 'DS2 - Sanctus', 'disc_number': 30, 'track_number': 49, 'album': 'CPH', 'artist': 'CPH', 'year': 2009, 'file_path': r'c:\music\30-49.m4a', 'liturgical_season': 'Liturgical'},
+        {'hymn_number': None, 'title': 'DS2 - Agnus Dei', 'disc_number': 30, 'track_number': 52, 'album': 'CPH', 'artist': 'CPH', 'year': 2009, 'file_path': r'c:\music\30-52.m4a', 'liturgical_season': 'Liturgical'},
+        {'hymn_number': None, 'title': 'DS2 - Nunc Dimittis', 'disc_number': 30, 'track_number': 54, 'album': 'CPH', 'artist': 'CPH', 'year': 2009, 'file_path': r'c:\music\30-54.m4a', 'liturgical_season': 'Liturgical'},
+
+        {'hymn_number': None, 'title': 'DS3 - Kyrie', 'disc_number': 30, 'track_number': 60, 'album': 'CPH', 'artist': 'CPH', 'year': 2009, 'file_path': r'c:\music\30-60.m4a', 'liturgical_season': 'Liturgical'},
+        {'hymn_number': None, 'title': 'DS3 - Gloria in Excelsis', 'disc_number': 30, 'track_number': 61, 'album': 'CPH', 'artist': 'CPH', 'year': 2009, 'file_path': r'c:\music\30-61.m4a', 'liturgical_season': 'Liturgical'},
+        {'hymn_number': None, 'title': 'DS3 - Salutation', 'disc_number': 30, 'track_number': 62, 'album': 'CPH', 'artist': 'CPH', 'year': 2009, 'file_path': r'c:\music\30-62.m4a', 'liturgical_season': 'Liturgical'},
+        {'hymn_number': None, 'title': 'DS3 - Collect of the Day_ Amen', 'disc_number': 30, 'track_number': 63, 'album': 'CPH', 'artist': 'CPH', 'year': 2009, 'file_path': r'c:\music\30-63.m4a', 'liturgical_season': 'Liturgical'},
+        {'hymn_number': None, 'title': 'DS3 - Offertory', 'disc_number': 30, 'track_number': 68, 'album': 'CPH', 'artist': 'CPH', 'year': 2009, 'file_path': r'c:\music\30-68.m4a', 'liturgical_season': 'Liturgical'},
+        {'hymn_number': None, 'title': 'DS3 - Sanctus', 'disc_number': 30, 'track_number': 73, 'album': 'CPH', 'artist': 'CPH', 'year': 2009, 'file_path': r'c:\music\30-73.m4a', 'liturgical_season': 'Liturgical'},
+        {'hymn_number': None, 'title': 'DS3 - Pax Domini_ Amen & Agnus Dei', 'disc_number': 30, 'track_number': 76, 'album': 'CPH', 'artist': 'CPH', 'year': 2009, 'file_path': r'c:\music\30-76.m4a', 'liturgical_season': 'Liturgical'},
+        {'hymn_number': None, 'title': 'DS3 - Nunc Dimittis', 'disc_number': 30, 'track_number': 77, 'album': 'CPH', 'artist': 'CPH', 'year': 2009, 'file_path': r'c:\music\30-77.m4a', 'liturgical_season': 'Liturgical'},
+
+        {'hymn_number': None, 'title': 'DS4 - Kyrie_ One Time', 'disc_number': 30, 'track_number': 83, 'album': 'CPH', 'artist': 'CPH', 'year': 2009, 'file_path': r'c:\music\30-83.m4a', 'liturgical_season': 'Liturgical'},
+        {'hymn_number': None, 'title': 'DS4 - Gloria in Excelsis', 'disc_number': 30, 'track_number': 86, 'album': 'CPH', 'artist': 'CPH', 'year': 2009, 'file_path': r'c:\music\30-86.m4a', 'liturgical_season': 'Liturgical'},
+        {'hymn_number': None, 'title': 'DS4 - Sanctus', 'disc_number': 30, 'track_number': 88, 'album': 'CPH', 'artist': 'CPH', 'year': 2009, 'file_path': r'c:\music\30-88.m4a', 'liturgical_season': 'Liturgical'},
+        {'hymn_number': None, 'title': 'DS4 - Agnus Dei', 'disc_number': 30, 'track_number': 89, 'album': 'CPH', 'artist': 'CPH', 'year': 2009, 'file_path': r'c:\music\30-89.m4a', 'liturgical_season': 'Liturgical'},
+        {'hymn_number': None, 'title': 'DS4 - Nunc Dimittis', 'disc_number': 30, 'track_number': 90, 'album': 'CPH', 'artist': 'CPH', 'year': 2009, 'file_path': r'c:\music\30-90.m4a', 'liturgical_season': 'Liturgical'},
+
+        {'hymn_number': None, 'title': 'DS5 - Kyrie (LSB 942)', 'disc_number': 30, 'track_number': 91, 'album': 'CPH', 'artist': 'CPH', 'year': 2009, 'file_path': r'c:\music\30-91.m4a', 'liturgical_season': 'Liturgical'},
+        {'hymn_number': None, 'title': 'DS5 - Gloria in Excelsis (LSB 948)', 'disc_number': 30, 'track_number': 92, 'album': 'CPH', 'artist': 'CPH', 'year': 2009, 'file_path': r'c:\music\30-92.m4a', 'liturgical_season': 'Liturgical'},
+        {'hymn_number': None, 'title': 'DS5 - Sanctus (LSB 960)', 'disc_number': 30, 'track_number': 94, 'album': 'CPH', 'artist': 'CPH', 'year': 2009, 'file_path': r'c:\music\30-94.m4a', 'liturgical_season': 'Liturgical'},
+        {'hymn_number': None, 'title': 'DS5 - Agnus Dei (LSB 198)', 'disc_number': 30, 'track_number': 95, 'album': 'CPH', 'artist': 'CPH', 'year': 2009, 'file_path': r'c:\music\30-95.m4a', 'liturgical_season': 'Liturgical'},
+        {'hymn_number': None, 'title': 'DS5 - Post-Communion Hymn (LSB 617)', 'disc_number': 30, 'track_number': 96, 'album': 'CPH', 'artist': 'CPH', 'year': 2009, 'file_path': r'c:\music\30-96.m4a', 'liturgical_season': 'Liturgical'},
+
+        {'hymn_number': None, 'title': 'MA - Versicles_ Intonation', 'disc_number': 31, 'track_number': 1, 'album': 'CPH', 'artist': 'CPH', 'year': 2009, 'file_path': r'c:\music\31-01.m4a', 'liturgical_season': 'Liturgical'},
+        {'hymn_number': None, 'title': 'MA - Antiphon & Venite', 'disc_number': 31, 'track_number': 4, 'album': 'CPH', 'artist': 'CPH', 'year': 2009, 'file_path': r'c:\music\31-04.m4a', 'liturgical_season': 'Liturgical'},
+        {'hymn_number': None, 'title': 'MA - Responsory_ Intonation', 'disc_number': 31, 'track_number': 6, 'album': 'CPH', 'artist': 'CPH', 'year': 2009, 'file_path': r'c:\music\31-06.m4a', 'liturgical_season': 'Liturgical'},
+        {'hymn_number': None, 'title': 'MA - Te Deum', 'disc_number': 31, 'track_number': 10, 'album': 'CPH', 'artist': 'CPH', 'year': 2009, 'file_path': r'c:\music\31-10.m4a', 'liturgical_season': 'Liturgical'},
+        {'hymn_number': None, 'title': 'MA - Benedictus', 'disc_number': 31, 'track_number': 11, 'album': 'CPH', 'artist': 'CPH', 'year': 2009, 'file_path': r'c:\music\31-11.m4a', 'liturgical_season': 'Liturgical'},
+        {'hymn_number': None, 'title': 'MA - Collect_ Amen', 'disc_number': 31, 'track_number': 16, 'album': 'CPH', 'artist': 'CPH', 'year': 2009, 'file_path': r'c:\music\31-16.m4a', 'liturgical_season': 'Liturgical'},
+        {'hymn_number': None, 'title': 'MA - Benedicamus', 'disc_number': 31, 'track_number': 17, 'album': 'CPH', 'artist': 'CPH', 'year': 2009, 'file_path': r'c:\music\31-17.m4a', 'liturgical_season': 'Liturgical'},
+        {'hymn_number': None, 'title': 'MA - Benediction_ Amen', 'disc_number': 31, 'track_number': 18, 'album': 'CPH', 'artist': 'CPH', 'year': 2009, 'file_path': r'c:\music\31-18.m4a', 'liturgical_season': 'Liturgical'},
+
+        {'hymn_number': None, 'title': 'VE - Magnificat', 'disc_number': 31, 'track_number': 27, 'album': 'CPH', 'artist': 'CPH', 'year': 2009, 'file_path': r'c:\music\31-27.m4a', 'liturgical_season': 'Liturgical'}
+    ], db_path)
+
+    for preset_name in PRESETS:
+        s_id = create_service_from_preset(f"Test {preset_name}", "2026-09-01", setting_preset=preset_name, db_path=db_path)
+        details = get_service_details(s_id, db_path=db_path)
+        for item in details['items']:
+            if item['slot_name'] not in ['Opening Hymn', 'Hymn of the Day', 'Distribution 1', 'Distribution 2', 'Closing Hymn', 'Office Hymn']:
+                assert item['hymn_id'] is not None, f"Canticle slot {item['slot_name']} in preset {preset_name} failed to bind audio track"
+                assert item['file_path'] != "", f"Canticle slot {item['slot_name']} in preset {preset_name} has empty file_path"
+
+def test_matins_full_template_items(tmp_path):
+    from src.services import get_template_by_name, seed_templates_if_empty
+    db_path = str(tmp_path / "matins_template_test.db")
+    init_db(db_path)
+    seed_templates_if_empty(db_path)
+    
+    matins = get_template_by_name("Matins", db_path)
+    assert matins is not None
+    slot_names = [i['slot_name'] for i in matins['items']]
+    
+    expected = [
+        "Opening Hymn", "Versicles", "Venite", "Office Hymn",
+        "Responsory", "Te Deum", "Benedictus",
+        "Collect for Grace", "Benedicamus", "Benediction", "Closing Hymn"
+    ]
+    for req in expected:
+        assert req in slot_names, f"Matins template missing required item: {req}"
+
+
+
+
 

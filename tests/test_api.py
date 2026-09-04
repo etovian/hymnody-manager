@@ -2,7 +2,8 @@ import os
 import pytest
 from fastapi.testclient import TestClient
 from src.main import app
-from src.database import init_db, save_hymns
+from src.database import init_db, save_hymns, normalize_path
+
 from src.services import create_service_from_preset
 
 client = TestClient(app)
@@ -156,7 +157,7 @@ def test_create_service_from_template_with_bound_audio_track(tmp_path):
     
     assert len(details["items"]) == 1
     assert details["items"][0]["item_title"] == "DS3 - Salutation"
-    assert details["items"][0]["file_path"] == "c:/music/ds3_salutation.m4a"
+    assert details["items"][0]["file_path"] == normalize_path("c:/music/ds3_salutation.m4a")
 
 def test_export_invalid_service_id_returns_404(tmp_path):
     db_path = str(tmp_path / "export_404_test.db")
@@ -183,6 +184,49 @@ def test_export_service_zip_filename_header(tmp_path):
     assert res.status_code == 200
     assert res.headers["content-type"] == "application/zip"
     assert res.headers["content-disposition"] == 'attachment; filename="20260901_DS3_Pentecost_15.zip"'
+
+def test_api_get_hymns_category_type_filter(tmp_path):
+    db_path = str(tmp_path / "api_category_type_test.db")
+    os.environ["HYMNODY_DB_PATH"] = db_path
+    init_db(db_path)
+    
+    save_hymns([
+        {
+            'hymn_number': 331,
+            'title': 'The advent of our King',
+            'disc_number': 1,
+            'track_number': 1,
+            'album': 'The Concordia Organist',
+            'artist': 'Concordia Publishing House',
+            'year': 2009,
+            'file_path': 'c:/music/hymn_331.m4a',
+            'liturgical_season': 'Advent'
+        },
+        {
+            'hymn_number': None,
+            'title': 'DS2 - Kyrie',
+            'disc_number': 30,
+            'track_number': 1,
+            'album': 'Divine Service 2',
+            'artist': 'Concordia Publishing House',
+            'year': 2006,
+            'file_path': 'c:/music/ds2_kyrie.m4a',
+            'liturgical_season': 'Liturgical'
+        }
+    ], db_path)
+    
+    res_hymn = client.get("/api/hymns?category_type=hymn")
+    assert res_hymn.status_code == 200
+    hymns = res_hymn.json()
+    assert len(hymns) == 1
+    assert hymns[0]['title'] == 'The advent of our King'
+    
+    res_liturgy = client.get("/api/hymns?category_type=liturgy")
+    assert res_liturgy.status_code == 200
+    liturgies = res_liturgy.json()
+    assert len(liturgies) == 1
+    assert liturgies[0]['title'] == 'DS2 - Kyrie'
+
 
 
 

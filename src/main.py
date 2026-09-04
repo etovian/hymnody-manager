@@ -26,10 +26,8 @@ async def lifespan(app: FastAPI):
     init_db(db_path)
     music_dir = get_music_dir()
     if os.path.exists(music_dir):
-        existing = search_hymns(db_path=db_path)
-        if not existing:
-            scanned = scan_hymns_directory(music_dir)
-            save_hymns(scanned, db_path=db_path)
+        scanned = scan_hymns_directory(music_dir)
+        save_hymns(scanned, db_path=db_path)
     yield
 
 app = FastAPI(title="Hymnody Manager & Worship Planner", lifespan=lifespan)
@@ -45,9 +43,9 @@ def rescan_directory():
     return {"status": "success", "count": len(scanned)}
 
 @app.get("/api/hymns")
-def api_get_hymns(q: str = None, season: str = None, disc: int = None):
+def api_get_hymns(q: str = None, season: str = None, category_type: str = None, disc: int = None):
     db_path = get_db_path()
-    return search_hymns(query=q, season=season, disc=disc, db_path=db_path)
+    return search_hymns(query=q, season=season, category_type=category_type, disc=disc, db_path=db_path)
 
 @app.get("/api/hymns/{hymn_id}")
 def api_get_hymn(hymn_id: int):
