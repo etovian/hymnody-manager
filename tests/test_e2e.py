@@ -127,4 +127,21 @@ def test_catalog_play_button_rendering():
     assert 'onclick="handleCatalogAddClick' not in app_js_text, "+ Add button should be replaced with Play button in catalog list and template editor"
 
 
+def test_audio_ended_event_stops_playback_without_auto_advance():
+    res = client.get("/static/app.js")
+    assert res.status_code == 200
+    app_js_text = res.text
+
+    # Extract the ended event listener block
+    ended_index = app_js_text.find("audioPlayer.addEventListener('ended'")
+    assert ended_index != -1, "ended event listener should be registered on audioPlayer"
+
+    ended_block = app_js_text[ended_index:ended_index + 200]
+
+    assert "playNextTrack()" not in ended_block, "ended event listener should not auto advance using playNextTrack()"
+    assert "isPlaying = false" in ended_block, "ended event listener should set isPlaying to false"
+    assert "updatePlayButtonUI()" in ended_block, "ended event listener should update play button UI"
+
+
+
 
