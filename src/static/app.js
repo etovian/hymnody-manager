@@ -169,8 +169,7 @@ function playCatalogHymn(hymnId) {
 }
 
 function handleCatalogAddClick(hymnId) {
-  const isTemplateModalOpen = !document.getElementById('template-editor-modal').classList.contains('hidden');
-  if (isTemplateModalOpen && selectedTemplateForEdit) {
+  if (activePlannerTab === 'templates' && selectedTemplateForEdit) {
     const hymn = currentHymns.find(h => h.id === hymnId);
     if (hymn) {
       selectedTemplateForEdit.items = selectedTemplateForEdit.items || [];
@@ -185,6 +184,7 @@ function handleCatalogAddClick(hymnId) {
     addHymnToService(hymnId);
   }
 }
+
 
 // Drag & Drop Handlers for Hymnal Catalog -> Service Slot
 function onHymnDragStart(e, hymnId) {

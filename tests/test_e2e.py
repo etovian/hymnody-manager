@@ -170,6 +170,48 @@ def test_tabbed_template_editor_js_functions():
     assert "function createNewTemplateFromModal(" in js, "createNewTemplateFromModal function should be defined in app.js"
 
 
+def test_create_and_save_custom_template_in_tab2(tmp_path):
+    db_path = str(tmp_path / "e2e_template_save.db")
+    os.environ["HYMNODY_DB_PATH"] = db_path
+    init_db(db_path)
+
+    # 1. Create a custom template via API
+    create_res = client.post("/api/templates", json={
+        "name": "Custom Matins Variation",
+        "description": "Custom liturgy preset",
+        "items": [
+            {"slot_name": "Opening Hymn", "match_term": "HYMN_SLOT", "item_title": "Opening Hymn"},
+            {"slot_name": "Versicles", "match_term": "MA - Versicles_ Intonation", "item_title": "Versicles"}
+        ]
+    })
+    assert create_res.status_code == 200
+    tmpl = create_res.json()
+    assert tmpl["name"] == "Custom Matins Variation"
+    t_id = tmpl["id"]
+
+    # 2. Get list of templates
+    list_res = client.get("/api/templates")
+    assert list_res.status_code == 200
+    tmpls = list_res.json()
+    assert any(t["name"] == "Custom Matins Variation" for t in tmpls)
+
+    # 3. Create service using the custom setting preset
+    srv_res = client.post("/api/services", json={
+        "title": "Custom Matins Service",
+        "service_date": "2026-09-06",
+        "setting_preset": "Custom Matins Variation"
+    })
+    assert srv_res.status_code == 200
+    srv = srv_res.json()
+    assert srv["setting_preset"] == "Custom Matins Variation"
+    assert len(srv["items"]) == 2
+
+    # 4. Delete custom template
+    del_res = client.delete(f"/api/templates/{t_id}")
+    assert del_res.status_code == 200
+
+
+
 
 
 
