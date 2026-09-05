@@ -385,10 +385,12 @@ async function createDraftServiceLocally(presetVal = 'DS2') {
     let itemTitle = it.item_title || it.slot_name;
 
     if (!isHymnSlot) {
-      const match = allTracks.find(h => {
+      const termLower = (it.match_term || '').toLowerCase();
+      const exactMatch = allTracks.find(h => (h.title || '').toLowerCase() === termLower);
+      const prefixMatch = exactMatch || allTracks.find(h => (h.title || '').toLowerCase().startsWith(termLower));
+      const match = prefixMatch || allTracks.find(h => {
         const titleLower = (h.title || '').toLowerCase();
-        const termLower = (it.match_term || '').toLowerCase();
-        return titleLower === termLower || titleLower.includes(termLower) || termLower.includes(titleLower);
+        return titleLower.includes(termLower) || termLower.includes(titleLower);
       });
       if (match) {
         hymnId = match.id;

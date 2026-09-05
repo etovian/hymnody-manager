@@ -244,6 +244,15 @@ def test_template_drag_and_drop_styles_and_event_stop_propagation():
     assert "e.stopPropagation()" in js, "e.stopPropagation() should be used in slot drop handlers to prevent event bubbling"
 
 
+def test_client_side_draft_service_exact_title_match_in_app_js():
+    res = client.get("/static/app.js")
+    assert res.status_code == 200
+    js = res.text
+    assert "exactMatch = allTracks.find" in js, "createDraftServiceLocally in app.js must prioritize exact title matches"
+    assert "prefixMatch = exactMatch || allTracks.find" in js, "createDraftServiceLocally in app.js must prioritize prefix matches before substring matches"
+
+
+
 
 
 
