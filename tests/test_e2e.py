@@ -156,6 +156,21 @@ def test_right_panel_tabs_and_template_selector_html():
     assert 'id="btn-open-template-modal"' in html, "Button to open template selector modal should exist"
 
 
+def test_tabbed_template_editor_js_functions():
+    res = client.get("/static/app.js")
+    assert res.status_code == 200
+    js = res.text
+
+    assert "function switchPlannerTab(" in js, "switchPlannerTab function should be defined in app.js"
+    assert "function openTemplateSelectorModal(" in js, "openTemplateSelectorModal function should be defined in app.js"
+    assert "function closeTemplateSelectorModal(" in js, "closeTemplateSelectorModal function should be defined in app.js"
+    assert "function renderTemplateCardsModal(" in js, "renderTemplateCardsModal function should be defined in app.js"
+    assert "function selectTemplateFromModal(" in js, "selectTemplateFromModal function should be defined in app.js"
+    assert "function duplicateTemplateFromModal(" in js, "duplicateTemplateFromModal function should be defined in app.js"
+    assert "function createNewTemplateFromModal(" in js, "createNewTemplateFromModal function should be defined in app.js"
+
+
+
 
 
 

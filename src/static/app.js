@@ -813,29 +813,121 @@ function searchModalCatalog() {
   });
 }
 
+let activePlannerTab = 'planner';
+
+function switchPlannerTab(tab) {
+  activePlannerTab = tab;
+  const tabPlanner = document.getElementById('tab-service-planner');
+  const tabTemplates = document.getElementById('tab-template-editor');
+  const panelPlanner = document.getElementById('panel-service-planner');
+  const panelTemplates = document.getElementById('panel-template-editor');
+
+  if (tab === 'planner') {
+    if (tabPlanner) tabPlanner.classList.add('active');
+    if (tabTemplates) tabTemplates.classList.remove('active');
+    if (panelPlanner) panelPlanner.classList.remove('hidden');
+    if (panelTemplates) panelTemplates.classList.add('hidden');
+  } else {
+    if (tabTemplates) tabTemplates.classList.add('active');
+    if (tabPlanner) tabPlanner.classList.remove('active');
+    if (panelTemplates) panelTemplates.classList.remove('hidden');
+    if (panelPlanner) panelPlanner.classList.add('hidden');
+
+    if (!selectedTemplateForEdit && availableTemplates.length > 0) {
+      selectTemplateUI(availableTemplates[0].id);
+    }
+  }
+}
+
+function openTemplateSelectorModal() {
+  const modal = document.getElementById('template-selector-modal');
+  if (modal) {
+    modal.classList.remove('hidden');
+    renderTemplateCardsModal();
+  }
+}
+
+function closeTemplateSelectorModal() {
+  const modal = document.getElementById('template-selector-modal');
+  if (modal) modal.classList.add('hidden');
+}
+
+function renderTemplateCardsModal() {
+  const container = document.getElementById('template-cards-container');
+  if (!container) return;
+  container.innerHTML = '';
+
+  availableTemplates.forEach(t => {
+    const card = document.createElement('div');
+    card.className = 'template-card';
+    const badgeClass = t.is_builtin ? 'badge-builtin' : 'badge-custom';
+    const badgeLabel = t.is_builtin ? 'Built-in' : 'Custom';
+    const slotCount = t.items ? t.items.length : 0;
+
+    card.innerHTML = `
+      <div>
+        <div class="flex-between mb-1" style="align-items: flex-start; gap: 8px;">
+          <h4 style="font-size: 0.95rem; font-weight: 700; color: white;">${t.name}</h4>
+          <span class="${badgeClass}">${badgeLabel}</span>
+        </div>
+        <p class="subtitle" style="font-size: 0.75rem; margin-bottom: 6px;">${t.description || 'No description'}</p>
+        <span style="font-size: 0.7rem; color: #60a5fa; font-weight: 600;">${slotCount} slots/ordinaries</span>
+      </div>
+      <div style="display: flex; gap: 6px; margin-top: 8px;">
+        <button class="btn btn-primary btn-sm" style="flex: 1;" onclick="selectTemplateFromModal(${t.id})">Select for Editing</button>
+        <button class="btn btn-emerald btn-sm" onclick="duplicateTemplateFromModal(${t.id})" title="Duplicate template">📋 Copy</button>
+      </div>
+    `;
+    container.appendChild(card);
+  });
+}
+
+function selectTemplateFromModal(templateId) {
+  selectTemplateUI(templateId);
+  closeTemplateSelectorModal();
+}
+
+async function duplicateTemplateFromModal(templateId) {
+  const t = availableTemplates.find(item => item.id === templateId);
+  if (!t) return;
+  const newName = `${t.name} (Copy)`;
+  const payload = {
+    name: newName,
+    description: t.description ? `${t.description} (Copy)` : 'Custom template copy',
+    items: t.items || []
+  };
+
+  try {
+    const res = await fetch('/api/templates', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    const saved = await res.json();
+    await loadTemplatesUI();
+    selectTemplateUI(saved.id);
+    closeTemplateSelectorModal();
+  } catch (err) {
+    console.error("Error duplicating template:", err);
+  }
+}
+
+function createNewTemplateFromModal() {
+  createNewTemplateUI();
+  closeTemplateSelectorModal();
+}
+
 async function loadTemplatesUI() {
   try {
     const res = await fetch('/api/templates');
     availableTemplates = await res.json();
     populatePresetDropdown();
 
-    const listContainer = document.getElementById('template-list-container');
-    listContainer.innerHTML = '';
-
-    availableTemplates.forEach(t => {
-      const btn = document.createElement('button');
-      btn.type = 'button';
-      btn.className = `template-item-btn ${selectedTemplateForEdit && selectedTemplateForEdit.id === t.id ? 'active' : ''}`;
-      btn.onclick = () => selectTemplateUI(t.id);
-      btn.innerHTML = `
-        <span style="font-weight: 700;">${t.name}</span>
-        <span class="subtitle">${t.is_builtin ? 'Built-in' : 'Custom'}</span>
-      `;
-      listContainer.appendChild(btn);
-    });
-
     if (availableTemplates.length > 0 && !selectedTemplateForEdit) {
       selectTemplateUI(availableTemplates[0].id);
+    } else if (selectedTemplateForEdit && selectedTemplateForEdit.id) {
+      const updated = availableTemplates.find(item => item.id === selectedTemplateForEdit.id);
+      if (updated) selectTemplateUI(updated.id);
     }
   } catch (err) {
     console.error("Error loading templates:", err);
@@ -861,17 +953,24 @@ function selectTemplateUI(templateId) {
   if (!t) return;
   selectedTemplateForEdit = t;
 
-  document.querySelectorAll('.template-item-btn').forEach(btn => {
-    btn.classList.toggle('active', btn.textContent.includes(t.name));
-  });
+  const titleEl = document.getElementById('active-template-title');
+  const subEl = document.getElementById('active-template-subtitle');
+  if (titleEl) titleEl.textContent = t.name;
+  if (subEl) subEl.textContent = `${t.is_builtin ? 'Built-in Lutheran Service Book preset' : 'Custom setting template'} • ${t.items ? t.items.length : 0} slots`;
 
-  document.getElementById('edit-template-id').value = t.id;
-  document.getElementById('edit-template-name').value = t.name;
-  document.getElementById('edit-template-desc').value = t.description || '';
-  document.getElementById('btn-delete-template').style.display = t.is_builtin ? 'none' : 'inline-block';
+  const editId = document.getElementById('edit-template-id');
+  const editName = document.getElementById('edit-template-name');
+  const editDesc = document.getElementById('edit-template-desc');
+  if (editId) editId.value = t.id || '';
+  if (editName) editName.value = t.name || '';
+  if (editDesc) editDesc.value = t.description || '';
+
+  const delBtn = document.getElementById('btn-delete-template');
+  if (delBtn) delBtn.style.display = t.is_builtin ? 'none' : 'inline-block';
 
   renderTemplateSlotsUI(t.items || []);
 }
+
 
 let draggedTemplateSlotIdx = null;
 
