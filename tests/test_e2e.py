@@ -221,6 +221,16 @@ def test_template_drag_and_drop_insertion_logic():
     assert "insert-above" in js and "insert-below" in js
 
 
+def test_play_template_slot_track_function():
+    res = client.get("/static/app.js")
+    assert res.status_code == 200
+    js = res.text
+
+    assert "function playTemplateSlotTrack(" in js, "playTemplateSlotTrack helper function should be defined in app.js"
+    assert "playTemplateSlotTrack(" in js, "playTemplateSlotTrack should be called from template slot cards"
+
+
+
 
 
 

@@ -1008,11 +1008,53 @@ function renderTemplateSlotsUI(items) {
           <input type="text" class="match-term-input" value="${item.match_term || ''}" placeholder="Match Term (or HYMN_SLOT)" style="flex: 1; background: #0f172a; color: #94a3b8; border: 1px solid #334155; padding: 2px 6px; border-radius: 4px; font-size: 0.75rem;" onchange="updateTemplateItemField(${idx}, 'match_term', this.value)">
         </div>
       </div>
+      <button type="button" class="btn btn-primary btn-sm" onclick="playTemplateSlotTrack(${idx})" title="Play slot audio" style="font-size: 0.75rem; padding: 3px 8px;">▶ Play</button>
       <button type="button" class="btn-danger-text" onclick="removeTemplateSlotUI(${idx})" title="Delete slot">✕</button>
     `;
     container.appendChild(row);
   });
 }
+
+async function playTemplateSlotTrack(slotIndex) {
+  if (!selectedTemplateForEdit || !selectedTemplateForEdit.items || !selectedTemplateForEdit.items[slotIndex]) return;
+  const item = selectedTemplateForEdit.items[slotIndex];
+  const term = item.match_term || '';
+
+  if (!term || term === 'HYMN_SLOT') {
+    alert(`Slot "${item.slot_name}" is a generic hymn placeholder. Drag a specific track from the hymnal catalog onto this slot to bind audio.`);
+    return;
+  }
+
+  // 1. Find matching track in currentHymns or via search
+  let match = currentHymns.find(h => 
+    h.title.toLowerCase() === term.toLowerCase() || 
+    (h.hymn_number && `lsb ${h.hymn_number}`.toLowerCase() === term.toLowerCase())
+  );
+
+  if (!match) {
+    try {
+      const res = await fetch(`/api/hymns?q=${encodeURIComponent(term)}`);
+      const results = await res.json();
+      if (results && results.length > 0) {
+        match = results[0];
+      }
+    } catch (err) {
+      console.error("Error finding audio for template slot:", err);
+    }
+  }
+
+  if (match) {
+    activeTrackIndex = -1;
+    audioPlayer.src = `/api/hymns/${match.id}/audio`;
+    audioPlayer.play();
+    isPlaying = true;
+    const itemTitle = match.hymn_number ? `LSB ${match.hymn_number} - ${match.title}` : match.title;
+    updatePlayerUI({ item_title: itemTitle, slot_name: `Template Slot • ${item.slot_name}` });
+  } else {
+    alert(`No audio track found matching "${term}". You can drag a track from the catalog to bind audio.`);
+  }
+}
+
 
 function updateTemplateItemField(index, field, value) {
   if (!selectedTemplateForEdit || !selectedTemplateForEdit.items || !selectedTemplateForEdit.items[index]) return;
