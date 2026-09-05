@@ -240,5 +240,41 @@ def test_path_normalization_and_deduplication(tmp_path):
         assert row['file_path'] == r"C:\music\track2.m4a"
 
 
+def test_search_hymns_exact_title_match_priority(tmp_path):
+    db_path = str(tmp_path / "test_exact_title.db")
+    init_db(db_path)
+
+    save_hymns([
+        {
+            'hymn_number': None,
+            'title': 'MA - Antiphon & Venite',
+            'disc_number': 31,
+            'track_number': 4,
+            'album': 'The Concordia Organist',
+            'artist': 'Concordia Publishing House',
+            'year': 2009,
+            'file_path': r'C:\music\31-04 MA - Antiphon & Venite.m4a',
+            'liturgical_season': 'General'
+        },
+        {
+            'hymn_number': None,
+            'title': 'MA - Antiphon',
+            'disc_number': 31,
+            'track_number': 5,
+            'album': 'The Concordia Organist',
+            'artist': 'Concordia Publishing House',
+            'year': 2009,
+            'file_path': r'C:\music\31-05 MA - Antiphon.m4a',
+            'liturgical_season': 'General'
+        }
+    ], db_path)
+
+    results = search_hymns(query="MA - Antiphon", db_path=db_path)
+    assert len(results) == 2
+    assert results[0]['title'] == 'MA - Antiphon', f"Expected exact title match 'MA - Antiphon' first, got '{results[0]['title']}'"
+    assert results[1]['title'] == 'MA - Antiphon & Venite'
+
+
+
 
 

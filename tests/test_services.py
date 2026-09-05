@@ -290,6 +290,61 @@ def test_matins_full_template_items(tmp_path):
         assert req in slot_names, f"Matins template missing required item: {req}"
 
 
+def test_create_service_matins_common_no_duplicate_antiphon_track(tmp_path):
+    from src.services import save_template, create_service_from_preset, get_service_details
+    db_path = str(tmp_path / "matins_common_dup_test.db")
+    init_db(db_path)
+
+    # Save audio tracks for MA - Antiphon & Venite (Track 4) and MA - Antiphon (Track 5)
+    save_hymns([
+        {
+            'hymn_number': None,
+            'title': 'MA - Antiphon & Venite',
+            'disc_number': 31,
+            'track_number': 4,
+            'album': 'The Concordia Organist',
+            'artist': 'Concordia Publishing House',
+            'year': 2009,
+            'file_path': r'C:\music\31-04 MA - Antiphon & Venite.m4a',
+            'liturgical_season': 'General'
+        },
+        {
+            'hymn_number': None,
+            'title': 'MA - Antiphon',
+            'disc_number': 31,
+            'track_number': 5,
+            'album': 'The Concordia Organist',
+            'artist': 'Concordia Publishing House',
+            'year': 2009,
+            'file_path': r'C:\music\31-05 MA - Antiphon.m4a',
+            'liturgical_season': 'General'
+        }
+    ], db_path)
+
+    # Create template "Matins (Common)" with two slots
+    t_id = save_template(
+        name="Matins (Common)",
+        description="Custom Matins Template",
+        items=[
+            {'slot_name': 'MA - Antiphon & Venite', 'match_term': 'MA - Antiphon & Venite', 'item_title': 'MA - Antiphon & Venite'},
+            {'slot_name': 'MA - Antiphon', 'match_term': 'MA - Antiphon', 'item_title': 'MA - Antiphon'}
+        ],
+        db_path=db_path
+    )
+
+    s_id = create_service_from_preset("Test Matins Common", "2026-09-05", setting_preset="Matins (Common)", db_path=db_path)
+    srv = get_service_details(s_id, db_path=db_path)
+    items = srv['items']
+
+    assert len(items) == 2
+    assert items[0]['item_title'] == 'MA - Antiphon & Venite'
+    assert items[0]['file_path'] == r'C:\music\31-04 MA - Antiphon & Venite.m4a'
+
+    assert items[1]['item_title'] == 'MA - Antiphon', f"Expected slot 2 to bind 'MA - Antiphon', but got '{items[1]['item_title']}'"
+    assert items[1]['file_path'] == r'C:\music\31-05 MA - Antiphon.m4a'
+
+
+
 
 
 

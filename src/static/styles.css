@@ -261,20 +261,24 @@ body {
 .gap-2 { gap: 0.5rem; }
 
 /* Dual-Zone Drag and Drop Indicators */
-.service-item.drag-insert-above {
+.service-item.drag-insert-above,
+.template-slot-card.drag-insert-above {
   border-top: 3px solid #3b82f6 !important;
   background: rgba(59, 130, 246, 0.1) !important;
 }
 
-.service-item.drag-insert-below {
+.service-item.drag-insert-below,
+.template-slot-card.drag-insert-below {
   border-bottom: 3px solid #3b82f6 !important;
   background: rgba(59, 130, 246, 0.1) !important;
 }
 
-.service-item.drag-replace {
+.service-item.drag-replace,
+.template-slot-card.drag-replace {
   border: 2px dashed #f59e0b !important;
   background: rgba(245, 158, 11, 0.15) !important;
 }
+
 
 /* Modal Dialogs */
 .modal-backdrop {
@@ -407,5 +411,42 @@ body {
   padding: 2px 6px;
   border-radius: 4px;
 }
+
+.template-card {
+  background: #0f172a;
+  border: 1px solid #334155;
+  border-radius: 8px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 10px;
+  transition: all 0.2s;
+}
+
+.template-card:hover {
+  border-color: #3b82f6;
+}
+
+.badge-builtin {
+  background: rgba(59, 130, 246, 0.2);
+  color: #60a5fa;
+  border: 1px solid rgba(59, 130, 246, 0.4);
+  font-size: 0.7rem;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.badge-custom {
+  background: rgba(16, 185, 129, 0.2);
+  color: #34d399;
+  border: 1px solid rgba(16, 185, 129, 0.4);
+  font-size: 0.7rem;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
 
 

@@ -143,5 +143,121 @@ def test_audio_ended_event_stops_playback_without_auto_advance():
     assert "updatePlayButtonUI()" in ended_block, "ended event listener should update play button UI"
 
 
+def test_right_panel_tabs_and_template_selector_html():
+    res = client.get("/")
+    assert res.status_code == 200
+    html = res.text
+
+    assert 'id="tab-service-planner"' in html, "Tab 1 button #tab-service-planner should exist in index.html"
+    assert 'id="tab-template-editor"' in html, "Tab 2 button #tab-template-editor should exist in index.html"
+    assert 'id="panel-service-planner"' in html, "Service planner panel #panel-service-planner should exist"
+    assert 'id="panel-template-editor"' in html, "Template editor panel #panel-template-editor should exist"
+    assert 'id="template-selector-modal"' in html, "Template selector modal #template-selector-modal should exist"
+    assert 'id="btn-open-template-modal"' in html, "Button to open template selector modal should exist"
+
+
+def test_tabbed_template_editor_js_functions():
+    res = client.get("/static/app.js")
+    assert res.status_code == 200
+    js = res.text
+
+    assert "function switchPlannerTab(" in js, "switchPlannerTab function should be defined in app.js"
+    assert "function openTemplateSelectorModal(" in js, "openTemplateSelectorModal function should be defined in app.js"
+    assert "function closeTemplateSelectorModal(" in js, "closeTemplateSelectorModal function should be defined in app.js"
+    assert "function renderTemplateCardsModal(" in js, "renderTemplateCardsModal function should be defined in app.js"
+    assert "function selectTemplateFromModal(" in js, "selectTemplateFromModal function should be defined in app.js"
+    assert "function duplicateTemplateFromModal(" in js, "duplicateTemplateFromModal function should be defined in app.js"
+    assert "function createNewTemplateFromModal(" in js, "createNewTemplateFromModal function should be defined in app.js"
+
+
+def test_create_and_save_custom_template_in_tab2(tmp_path):
+    db_path = str(tmp_path / "e2e_template_save.db")
+    os.environ["HYMNODY_DB_PATH"] = db_path
+    init_db(db_path)
+
+    # 1. Create a custom template via API
+    create_res = client.post("/api/templates", json={
+        "name": "Custom Matins Variation",
+        "description": "Custom liturgy preset",
+        "items": [
+            {"slot_name": "Opening Hymn", "match_term": "HYMN_SLOT", "item_title": "Opening Hymn"},
+            {"slot_name": "Versicles", "match_term": "MA - Versicles_ Intonation", "item_title": "Versicles"}
+        ]
+    })
+    assert create_res.status_code == 200
+    tmpl = create_res.json()
+    assert tmpl["name"] == "Custom Matins Variation"
+    t_id = tmpl["id"]
+
+    # 2. Get list of templates
+    list_res = client.get("/api/templates")
+    assert list_res.status_code == 200
+    tmpls = list_res.json()
+    assert any(t["name"] == "Custom Matins Variation" for t in tmpls)
+
+    # 3. Create service using the custom setting preset
+    srv_res = client.post("/api/services", json={
+        "title": "Custom Matins Service",
+        "service_date": "2026-09-06",
+        "setting_preset": "Custom Matins Variation"
+    })
+    assert srv_res.status_code == 200
+    srv = srv_res.json()
+    assert srv["setting_preset"] == "Custom Matins Variation"
+    assert len(srv["items"]) == 2
+
+    # 4. Delete custom template
+    del_res = client.delete(f"/api/templates/{t_id}")
+    assert del_res.status_code == 200
+
+
+def test_template_drag_and_drop_insertion_logic():
+    res = client.get("/static/app.js")
+    assert res.status_code == 200
+    js = res.text
+
+    assert "onTemplateSlotDragOver" in js, "onTemplateSlotDragOver function should be defined in app.js"
+    assert "onTemplateSlotDragLeave" in js, "onTemplateSlotDragLeave function should be defined in app.js"
+    assert "insert-above" in js and "insert-below" in js
+
+
+def test_play_template_slot_track_function():
+    res = client.get("/static/app.js")
+    assert res.status_code == 200
+    js = res.text
+
+    assert "function playTemplateSlotTrack(" in js, "playTemplateSlotTrack helper function should be defined in app.js"
+    assert "playTemplateSlotTrack(" in js, "playTemplateSlotTrack should be called from template slot cards"
+
+
+def test_template_drag_and_drop_styles_and_event_stop_propagation():
+    css_res = client.get("/static/styles.css")
+    assert css_res.status_code == 200
+    css = css_res.text
+    assert ".template-slot-card.drag-insert-above" in css, "CSS rule for .template-slot-card.drag-insert-above should exist"
+    assert ".template-slot-card.drag-insert-below" in css, "CSS rule for .template-slot-card.drag-insert-below should exist"
+    assert ".template-slot-card.drag-replace" in css, "CSS rule for .template-slot-card.drag-replace should exist"
+
+    js_res = client.get("/static/app.js")
+    assert js_res.status_code == 200
+    js = js_res.text
+    assert "e.stopPropagation()" in js, "e.stopPropagation() should be used in slot drop handlers to prevent event bubbling"
+
+
+def test_client_side_draft_service_exact_title_match_in_app_js():
+    res = client.get("/static/app.js")
+    assert res.status_code == 200
+    js = res.text
+    assert "exactMatch = allTracks.find" in js, "createDraftServiceLocally in app.js must prioritize exact title matches"
+    assert "prefixMatch = exactMatch || allTracks.find" in js, "createDraftServiceLocally in app.js must prioritize prefix matches before substring matches"
+
+
+
+
+
+
+
+
+
 
 

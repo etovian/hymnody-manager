@@ -148,6 +148,8 @@ def search_hymns(query=None, season=None, category_type=None, disc=None, db_path
         cursor = conn.cursor()
         sql = "SELECT * FROM hymns WHERE 1=1"
         params = []
+        order_by_case = ""
+        order_params = []
         
         if category_type == 'hymn':
             sql += " AND hymn_number IS NOT NULL"
@@ -160,6 +162,8 @@ def search_hymns(query=None, season=None, category_type=None, disc=None, db_path
             if query_str.isdigit():
                 sql += " AND (hymn_number = ? OR title LIKE ? OR liturgical_season LIKE ?)"
                 params.extend([int(query_str), f"%{query_str}%", f"%{query_str}%"])
+                order_by_case = "CASE WHEN hymn_number = ? THEN 0 WHEN LOWER(title) = LOWER(?) THEN 1 WHEN LOWER(title) LIKE LOWER(?) || '%' THEN 2 ELSE 3 END ASC, "
+                order_params = [int(query_str), query_str, query_str]
             elif q_lower in ('matins', 'ma'):
                 sql += " AND (liturgical_season = 'Matins' OR title LIKE 'MA - %' OR title LIKE '%matins%')"
             elif q_lower in ('vespers', 've'):
@@ -173,6 +177,8 @@ def search_hymns(query=None, season=None, category_type=None, disc=None, db_path
             else:
                 sql += " AND (title LIKE ? OR liturgical_season LIKE ?)"
                 params.extend([f"%{query_str}%", f"%{query_str}%"])
+                order_by_case = "CASE WHEN LOWER(title) = LOWER(?) THEN 0 WHEN LOWER(title) LIKE LOWER(?) || '%' THEN 1 ELSE 2 END ASC, "
+                order_params = [query_str, query_str]
 
         if season:
             sql += " AND liturgical_season = ?"
@@ -182,10 +188,12 @@ def search_hymns(query=None, season=None, category_type=None, disc=None, db_path
             sql += " AND disc_number = ?"
             params.append(int(disc))
             
-        sql += " ORDER BY disc_number ASC, track_number ASC"
+        sql += f" ORDER BY {order_by_case}disc_number ASC, track_number ASC"
+        params.extend(order_params)
         cursor.execute(sql, params)
         rows = cursor.fetchall()
         return [dict(r) for r in rows]
+
 
 def get_hymn_by_id(hymn_id, db_path=DEFAULT_DB_PATH):
     with get_db_connection(db_path) as conn:

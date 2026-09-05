@@ -169,8 +169,7 @@ function playCatalogHymn(hymnId) {
 }
 
 function handleCatalogAddClick(hymnId) {
-  const isTemplateModalOpen = !document.getElementById('template-editor-modal').classList.contains('hidden');
-  if (isTemplateModalOpen && selectedTemplateForEdit) {
+  if (activePlannerTab === 'templates' && selectedTemplateForEdit) {
     const hymn = currentHymns.find(h => h.id === hymnId);
     if (hymn) {
       selectedTemplateForEdit.items = selectedTemplateForEdit.items || [];
@@ -185,6 +184,7 @@ function handleCatalogAddClick(hymnId) {
     addHymnToService(hymnId);
   }
 }
+
 
 // Drag & Drop Handlers for Hymnal Catalog -> Service Slot
 function onHymnDragStart(e, hymnId) {
@@ -385,10 +385,12 @@ async function createDraftServiceLocally(presetVal = 'DS2') {
     let itemTitle = it.item_title || it.slot_name;
 
     if (!isHymnSlot) {
-      const match = allTracks.find(h => {
+      const termLower = (it.match_term || '').toLowerCase();
+      const exactMatch = allTracks.find(h => (h.title || '').toLowerCase() === termLower);
+      const prefixMatch = exactMatch || allTracks.find(h => (h.title || '').toLowerCase().startsWith(termLower));
+      const match = prefixMatch || allTracks.find(h => {
         const titleLower = (h.title || '').toLowerCase();
-        const termLower = (it.match_term || '').toLowerCase();
-        return titleLower === termLower || titleLower.includes(termLower) || termLower.includes(titleLower);
+        return titleLower.includes(termLower) || termLower.includes(titleLower);
       });
       if (match) {
         hymnId = match.id;
@@ -813,29 +815,121 @@ function searchModalCatalog() {
   });
 }
 
+let activePlannerTab = 'planner';
+
+function switchPlannerTab(tab) {
+  activePlannerTab = tab;
+  const tabPlanner = document.getElementById('tab-service-planner');
+  const tabTemplates = document.getElementById('tab-template-editor');
+  const panelPlanner = document.getElementById('panel-service-planner');
+  const panelTemplates = document.getElementById('panel-template-editor');
+
+  if (tab === 'planner') {
+    if (tabPlanner) tabPlanner.classList.add('active');
+    if (tabTemplates) tabTemplates.classList.remove('active');
+    if (panelPlanner) panelPlanner.classList.remove('hidden');
+    if (panelTemplates) panelTemplates.classList.add('hidden');
+  } else {
+    if (tabTemplates) tabTemplates.classList.add('active');
+    if (tabPlanner) tabPlanner.classList.remove('active');
+    if (panelTemplates) panelTemplates.classList.remove('hidden');
+    if (panelPlanner) panelPlanner.classList.add('hidden');
+
+    if (!selectedTemplateForEdit && availableTemplates.length > 0) {
+      selectTemplateUI(availableTemplates[0].id);
+    }
+  }
+}
+
+function openTemplateSelectorModal() {
+  const modal = document.getElementById('template-selector-modal');
+  if (modal) {
+    modal.classList.remove('hidden');
+    renderTemplateCardsModal();
+  }
+}
+
+function closeTemplateSelectorModal() {
+  const modal = document.getElementById('template-selector-modal');
+  if (modal) modal.classList.add('hidden');
+}
+
+function renderTemplateCardsModal() {
+  const container = document.getElementById('template-cards-container');
+  if (!container) return;
+  container.innerHTML = '';
+
+  availableTemplates.forEach(t => {
+    const card = document.createElement('div');
+    card.className = 'template-card';
+    const badgeClass = t.is_builtin ? 'badge-builtin' : 'badge-custom';
+    const badgeLabel = t.is_builtin ? 'Built-in' : 'Custom';
+    const slotCount = t.items ? t.items.length : 0;
+
+    card.innerHTML = `
+      <div>
+        <div class="flex-between mb-1" style="align-items: flex-start; gap: 8px;">
+          <h4 style="font-size: 0.95rem; font-weight: 700; color: white;">${t.name}</h4>
+          <span class="${badgeClass}">${badgeLabel}</span>
+        </div>
+        <p class="subtitle" style="font-size: 0.75rem; margin-bottom: 6px;">${t.description || 'No description'}</p>
+        <span style="font-size: 0.7rem; color: #60a5fa; font-weight: 600;">${slotCount} slots/ordinaries</span>
+      </div>
+      <div style="display: flex; gap: 6px; margin-top: 8px;">
+        <button class="btn btn-primary btn-sm" style="flex: 1;" onclick="selectTemplateFromModal(${t.id})">Select for Editing</button>
+        <button class="btn btn-emerald btn-sm" onclick="duplicateTemplateFromModal(${t.id})" title="Duplicate template">📋 Copy</button>
+      </div>
+    `;
+    container.appendChild(card);
+  });
+}
+
+function selectTemplateFromModal(templateId) {
+  selectTemplateUI(templateId);
+  closeTemplateSelectorModal();
+}
+
+async function duplicateTemplateFromModal(templateId) {
+  const t = availableTemplates.find(item => item.id === templateId);
+  if (!t) return;
+  const newName = `${t.name} (Copy)`;
+  const payload = {
+    name: newName,
+    description: t.description ? `${t.description} (Copy)` : 'Custom template copy',
+    items: t.items || []
+  };
+
+  try {
+    const res = await fetch('/api/templates', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    const saved = await res.json();
+    await loadTemplatesUI();
+    selectTemplateUI(saved.id);
+    closeTemplateSelectorModal();
+  } catch (err) {
+    console.error("Error duplicating template:", err);
+  }
+}
+
+function createNewTemplateFromModal() {
+  createNewTemplateUI();
+  closeTemplateSelectorModal();
+}
+
 async function loadTemplatesUI() {
   try {
     const res = await fetch('/api/templates');
     availableTemplates = await res.json();
     populatePresetDropdown();
 
-    const listContainer = document.getElementById('template-list-container');
-    listContainer.innerHTML = '';
-
-    availableTemplates.forEach(t => {
-      const btn = document.createElement('button');
-      btn.type = 'button';
-      btn.className = `template-item-btn ${selectedTemplateForEdit && selectedTemplateForEdit.id === t.id ? 'active' : ''}`;
-      btn.onclick = () => selectTemplateUI(t.id);
-      btn.innerHTML = `
-        <span style="font-weight: 700;">${t.name}</span>
-        <span class="subtitle">${t.is_builtin ? 'Built-in' : 'Custom'}</span>
-      `;
-      listContainer.appendChild(btn);
-    });
-
     if (availableTemplates.length > 0 && !selectedTemplateForEdit) {
       selectTemplateUI(availableTemplates[0].id);
+    } else if (selectedTemplateForEdit && selectedTemplateForEdit.id) {
+      const updated = availableTemplates.find(item => item.id === selectedTemplateForEdit.id);
+      if (updated) selectTemplateUI(updated.id);
     }
   } catch (err) {
     console.error("Error loading templates:", err);
@@ -861,17 +955,24 @@ function selectTemplateUI(templateId) {
   if (!t) return;
   selectedTemplateForEdit = t;
 
-  document.querySelectorAll('.template-item-btn').forEach(btn => {
-    btn.classList.toggle('active', btn.textContent.includes(t.name));
-  });
+  const titleEl = document.getElementById('active-template-title');
+  const subEl = document.getElementById('active-template-subtitle');
+  if (titleEl) titleEl.textContent = t.name;
+  if (subEl) subEl.textContent = `${t.is_builtin ? 'Built-in Lutheran Service Book preset' : 'Custom setting template'} • ${t.items ? t.items.length : 0} slots`;
 
-  document.getElementById('edit-template-id').value = t.id;
-  document.getElementById('edit-template-name').value = t.name;
-  document.getElementById('edit-template-desc').value = t.description || '';
-  document.getElementById('btn-delete-template').style.display = t.is_builtin ? 'none' : 'inline-block';
+  const editId = document.getElementById('edit-template-id');
+  const editName = document.getElementById('edit-template-name');
+  const editDesc = document.getElementById('edit-template-desc');
+  if (editId) editId.value = t.id || '';
+  if (editName) editName.value = t.name || '';
+  if (editDesc) editDesc.value = t.description || '';
+
+  const delBtn = document.getElementById('btn-delete-template');
+  if (delBtn) delBtn.style.display = t.is_builtin ? 'none' : 'inline-block';
 
   renderTemplateSlotsUI(t.items || []);
 }
+
 
 let draggedTemplateSlotIdx = null;
 
@@ -889,18 +990,9 @@ function renderTemplateSlotsUI(items) {
       draggedHymnId = null;
       e.dataTransfer.setData('text/plain', JSON.stringify({ type: 'template-slot', idx }));
     };
-    row.ondragover = (e) => {
-      e.preventDefault();
-      row.classList.add('drag-over');
-    };
-    row.ondragleave = () => {
-      row.classList.remove('drag-over');
-    };
-    row.ondrop = (e) => {
-      e.preventDefault();
-      row.classList.remove('drag-over');
-      onTemplateSlotDrop(e, idx);
-    };
+    row.ondragover = onTemplateSlotDragOver;
+    row.ondragleave = onTemplateSlotDragLeave;
+    row.ondrop = (e) => onTemplateSlotDrop(e, idx);
 
     const isHymn = !item.match_term || item.match_term === 'HYMN_SLOT';
     const badgeClass = isHymn ? 'badge-hymn' : 'badge-audio';
@@ -918,11 +1010,53 @@ function renderTemplateSlotsUI(items) {
           <input type="text" class="match-term-input" value="${item.match_term || ''}" placeholder="Match Term (or HYMN_SLOT)" style="flex: 1; background: #0f172a; color: #94a3b8; border: 1px solid #334155; padding: 2px 6px; border-radius: 4px; font-size: 0.75rem;" onchange="updateTemplateItemField(${idx}, 'match_term', this.value)">
         </div>
       </div>
+      <button type="button" class="btn btn-primary btn-sm" onclick="playTemplateSlotTrack(${idx})" title="Play slot audio" style="font-size: 0.75rem; padding: 3px 8px;">▶ Play</button>
       <button type="button" class="btn-danger-text" onclick="removeTemplateSlotUI(${idx})" title="Delete slot">✕</button>
     `;
     container.appendChild(row);
   });
 }
+
+async function playTemplateSlotTrack(slotIndex) {
+  if (!selectedTemplateForEdit || !selectedTemplateForEdit.items || !selectedTemplateForEdit.items[slotIndex]) return;
+  const item = selectedTemplateForEdit.items[slotIndex];
+  const term = item.match_term || '';
+
+  if (!term || term === 'HYMN_SLOT') {
+    alert(`Slot "${item.slot_name}" is a generic hymn placeholder. Drag a specific track from the hymnal catalog onto this slot to bind audio.`);
+    return;
+  }
+
+  // 1. Find matching track in currentHymns or via search
+  let match = currentHymns.find(h => 
+    h.title.toLowerCase() === term.toLowerCase() || 
+    (h.hymn_number && `lsb ${h.hymn_number}`.toLowerCase() === term.toLowerCase())
+  );
+
+  if (!match) {
+    try {
+      const res = await fetch(`/api/hymns?q=${encodeURIComponent(term)}`);
+      const results = await res.json();
+      if (results && results.length > 0) {
+        match = results[0];
+      }
+    } catch (err) {
+      console.error("Error finding audio for template slot:", err);
+    }
+  }
+
+  if (match) {
+    activeTrackIndex = -1;
+    audioPlayer.src = `/api/hymns/${match.id}/audio`;
+    audioPlayer.play();
+    isPlaying = true;
+    const itemTitle = match.hymn_number ? `LSB ${match.hymn_number} - ${match.title}` : match.title;
+    updatePlayerUI({ item_title: itemTitle, slot_name: `Template Slot • ${item.slot_name}` });
+  } else {
+    alert(`No audio track found matching "${term}". You can drag a track from the catalog to bind audio.`);
+  }
+}
+
 
 function updateTemplateItemField(index, field, value) {
   if (!selectedTemplateForEdit || !selectedTemplateForEdit.items || !selectedTemplateForEdit.items[index]) return;
@@ -947,7 +1081,7 @@ function onTemplateListDrop(e) {
   }
 
   if (hId !== null && hId !== undefined && selectedTemplateForEdit) {
-    const hymn = currentHymns.find(h => h.id === hId);
+    const hymn = currentHymns.find(h => h.id == hId);
     if (hymn) {
       selectedTemplateForEdit.items = selectedTemplateForEdit.items || [];
       selectedTemplateForEdit.items.push({
@@ -961,9 +1095,40 @@ function onTemplateListDrop(e) {
   }
 }
 
+function onTemplateSlotDragOver(e) {
+  e.preventDefault();
+  const rect = e.currentTarget.getBoundingClientRect();
+  const y = e.clientY - rect.top;
+  const pct = y / rect.height;
+
+  e.currentTarget.classList.remove('drag-insert-above', 'drag-insert-below', 'drag-replace', 'drag-over');
+
+  if (pct < 0.25) {
+    activeDragMode = 'insert-above';
+    e.currentTarget.classList.add('drag-insert-above');
+  } else if (pct > 0.75) {
+    activeDragMode = 'insert-below';
+    e.currentTarget.classList.add('drag-insert-below');
+  } else {
+    activeDragMode = 'replace';
+    e.currentTarget.classList.add('drag-replace');
+  }
+}
+
+function onTemplateSlotDragLeave(e) {
+  if (e.relatedTarget && e.currentTarget.contains(e.relatedTarget)) return;
+  e.currentTarget.classList.remove('drag-insert-above', 'drag-insert-below', 'drag-replace', 'drag-over');
+}
+
 function onTemplateSlotDrop(e, targetIdx) {
+  e.preventDefault();
+  e.stopPropagation();
+  e.currentTarget.classList.remove('drag-insert-above', 'drag-insert-below', 'drag-replace', 'drag-over');
   if (!selectedTemplateForEdit || !selectedTemplateForEdit.items) return;
-  
+
+  const mode = activeDragMode || 'replace';
+  activeDragMode = null;
+
   let hId = draggedHymnId;
   if (hId === null) {
     try {
@@ -973,24 +1138,43 @@ function onTemplateSlotDrop(e, targetIdx) {
   }
 
   if (hId !== null && hId !== undefined) {
-    const hymn = currentHymns.find(h => h.id === hId);
+    const hymn = currentHymns.find(h => h.id == hId);
     if (hymn) {
-      selectedTemplateForEdit.items[targetIdx] = {
+      const newSlot = {
         slot_name: hymn.title,
         match_term: hymn.title,
         item_title: hymn.title
       };
+      if (mode === 'replace') {
+        selectedTemplateForEdit.items[targetIdx] = newSlot;
+      } else if (mode === 'insert-above') {
+        selectedTemplateForEdit.items.splice(targetIdx, 0, newSlot);
+      } else if (mode === 'insert-below') {
+        selectedTemplateForEdit.items.splice(targetIdx + 1, 0, newSlot);
+      }
       renderTemplateSlotsUI(selectedTemplateForEdit.items);
     }
     draggedHymnId = null;
-  } else if (draggedTemplateSlotIdx !== null && draggedTemplateSlotIdx !== targetIdx) {
+  } else if (draggedTemplateSlotIdx !== null) {
+    if (draggedTemplateSlotIdx === targetIdx && mode === 'replace') return;
     const items = selectedTemplateForEdit.items;
     const [moved] = items.splice(draggedTemplateSlotIdx, 1);
-    items.splice(targetIdx, 0, moved);
+    
+    let destIndex = targetIdx;
+    if (mode === 'insert-below') {
+      destIndex = targetIdx + (draggedTemplateSlotIdx < targetIdx ? 0 : 1);
+    } else if (mode === 'insert-above') {
+      destIndex = targetIdx - (draggedTemplateSlotIdx < targetIdx ? 1 : 0);
+      if (destIndex < 0) destIndex = 0;
+    }
+    
+    items.splice(destIndex, 0, moved);
     renderTemplateSlotsUI(items);
     draggedTemplateSlotIdx = null;
   }
 }
+
+
 
 function addHymnPlaceholderSlotUI() {
   if (!selectedTemplateForEdit) return;
