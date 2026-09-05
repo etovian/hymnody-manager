@@ -228,6 +228,17 @@ def test_api_get_hymns_category_type_filter(tmp_path):
     assert liturgies[0]['title'] == 'DS2 - Kyrie'
 
 
+def test_static_files_no_cache_headers():
+    res = client.get("/static/app.js")
+    assert res.status_code == 200
+    assert "no-cache" in res.headers.get("cache-control", "")
+
+    res_root = client.get("/")
+    assert res_root.status_code == 200
+    assert "no-cache" in res_root.headers.get("cache-control", "")
+
+
+
 
 
 
