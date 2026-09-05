@@ -1195,7 +1195,8 @@ function setupAudioListeners() {
   });
 
   audioPlayer.addEventListener('ended', () => {
-    playNextTrack();
+    isPlaying = false;
+    updatePlayButtonUI();
   });
 }
 
