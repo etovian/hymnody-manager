@@ -230,6 +230,21 @@ def test_play_template_slot_track_function():
     assert "playTemplateSlotTrack(" in js, "playTemplateSlotTrack should be called from template slot cards"
 
 
+def test_template_drag_and_drop_styles_and_event_stop_propagation():
+    css_res = client.get("/static/styles.css")
+    assert css_res.status_code == 200
+    css = css_res.text
+    assert ".template-slot-card.drag-insert-above" in css, "CSS rule for .template-slot-card.drag-insert-above should exist"
+    assert ".template-slot-card.drag-insert-below" in css, "CSS rule for .template-slot-card.drag-insert-below should exist"
+    assert ".template-slot-card.drag-replace" in css, "CSS rule for .template-slot-card.drag-replace should exist"
+
+    js_res = client.get("/static/app.js")
+    assert js_res.status_code == 200
+    js = js_res.text
+    assert "e.stopPropagation()" in js, "e.stopPropagation() should be used in slot drop handlers to prevent event bubbling"
+
+
+
 
 
 

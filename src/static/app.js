@@ -1079,7 +1079,7 @@ function onTemplateListDrop(e) {
   }
 
   if (hId !== null && hId !== undefined && selectedTemplateForEdit) {
-    const hymn = currentHymns.find(h => h.id === hId);
+    const hymn = currentHymns.find(h => h.id == hId);
     if (hymn) {
       selectedTemplateForEdit.items = selectedTemplateForEdit.items || [];
       selectedTemplateForEdit.items.push({
@@ -1114,11 +1114,13 @@ function onTemplateSlotDragOver(e) {
 }
 
 function onTemplateSlotDragLeave(e) {
+  if (e.relatedTarget && e.currentTarget.contains(e.relatedTarget)) return;
   e.currentTarget.classList.remove('drag-insert-above', 'drag-insert-below', 'drag-replace', 'drag-over');
 }
 
 function onTemplateSlotDrop(e, targetIdx) {
   e.preventDefault();
+  e.stopPropagation();
   e.currentTarget.classList.remove('drag-insert-above', 'drag-insert-below', 'drag-replace', 'drag-over');
   if (!selectedTemplateForEdit || !selectedTemplateForEdit.items) return;
 
@@ -1134,7 +1136,7 @@ function onTemplateSlotDrop(e, targetIdx) {
   }
 
   if (hId !== null && hId !== undefined) {
-    const hymn = currentHymns.find(h => h.id === hId);
+    const hymn = currentHymns.find(h => h.id == hId);
     if (hymn) {
       const newSlot = {
         slot_name: hymn.title,
@@ -1169,6 +1171,7 @@ function onTemplateSlotDrop(e, targetIdx) {
     draggedTemplateSlotIdx = null;
   }
 }
+
 
 
 function addHymnPlaceholderSlotUI() {

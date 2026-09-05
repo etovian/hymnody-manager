@@ -261,20 +261,24 @@ body {
 .gap-2 { gap: 0.5rem; }
 
 /* Dual-Zone Drag and Drop Indicators */
-.service-item.drag-insert-above {
+.service-item.drag-insert-above,
+.template-slot-card.drag-insert-above {
   border-top: 3px solid #3b82f6 !important;
   background: rgba(59, 130, 246, 0.1) !important;
 }
 
-.service-item.drag-insert-below {
+.service-item.drag-insert-below,
+.template-slot-card.drag-insert-below {
   border-bottom: 3px solid #3b82f6 !important;
   background: rgba(59, 130, 246, 0.1) !important;
 }
 
-.service-item.drag-replace {
+.service-item.drag-replace,
+.template-slot-card.drag-replace {
   border: 2px dashed #f59e0b !important;
   background: rgba(245, 158, 11, 0.15) !important;
 }
+
 
 /* Modal Dialogs */
 .modal-backdrop {
