@@ -143,5 +143,19 @@ def test_audio_ended_event_stops_playback_without_auto_advance():
     assert "updatePlayButtonUI()" in ended_block, "ended event listener should update play button UI"
 
 
+def test_right_panel_tabs_and_template_selector_html():
+    res = client.get("/")
+    assert res.status_code == 200
+    html = res.text
+
+    assert 'id="tab-service-planner"' in html, "Tab 1 button #tab-service-planner should exist in index.html"
+    assert 'id="tab-template-editor"' in html, "Tab 2 button #tab-template-editor should exist in index.html"
+    assert 'id="panel-service-planner"' in html, "Service planner panel #panel-service-planner should exist"
+    assert 'id="panel-template-editor"' in html, "Template editor panel #panel-template-editor should exist"
+    assert 'id="template-selector-modal"' in html, "Template selector modal #template-selector-modal should exist"
+    assert 'id="btn-open-template-modal"' in html, "Button to open template selector modal should exist"
+
+
+
 
 

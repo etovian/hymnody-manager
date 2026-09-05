@@ -408,4 +408,41 @@ body {
   border-radius: 4px;
 }
 
+.template-card {
+  background: #0f172a;
+  border: 1px solid #334155;
+  border-radius: 8px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 10px;
+  transition: all 0.2s;
+}
+
+.template-card:hover {
+  border-color: #3b82f6;
+}
+
+.badge-builtin {
+  background: rgba(59, 130, 246, 0.2);
+  color: #60a5fa;
+  border: 1px solid rgba(59, 130, 246, 0.4);
+  font-size: 0.7rem;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.badge-custom {
+  background: rgba(16, 185, 129, 0.2);
+  color: #34d399;
+  border: 1px solid rgba(16, 185, 129, 0.4);
+  font-size: 0.7rem;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+
 
