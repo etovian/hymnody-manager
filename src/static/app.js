@@ -149,10 +149,23 @@ function renderHymnList(hymns) {
           <div class="subtitle">Disc ${h.disc_number}, Track ${h.track_number} • ${h.liturgical_season}</div>
         </div>
       </div>
-      <button class="btn btn-primary" onclick="handleCatalogAddClick(${h.id})">+ Add</button>
+      <button class="btn btn-primary" onclick="playCatalogHymn(${h.id})">▶ Play</button>
     `;
     container.appendChild(item);
   });
+}
+
+function playCatalogHymn(hymnId) {
+  const hymn = currentHymns.find(h => h.id === hymnId);
+  if (!hymn) return;
+  activeTrackIndex = -1;
+  const audioUrl = `/api/hymns/${hymnId}/audio`;
+  audioPlayer.src = audioUrl;
+  audioPlayer.play();
+  isPlaying = true;
+  const itemTitle = hymn.hymn_number ? `LSB ${hymn.hymn_number} - ${hymn.title}` : hymn.title;
+  const slotName = hymn.liturgical_season ? `Hymnal Catalog • ${hymn.liturgical_season}` : `Hymnal Catalog`;
+  updatePlayerUI({ item_title: itemTitle, slot_name: slotName });
 }
 
 function handleCatalogAddClick(hymnId) {
@@ -794,7 +807,7 @@ function searchModalCatalog() {
         <div style="font-size: 0.75rem; font-weight: 700; color: white; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${h.title}</div>
         <div style="font-size: 0.65rem; color: #94a3b8;">${numTag} • Track ${h.track_number}</div>
       </div>
-      <button type="button" class="btn btn-primary btn-sm" style="font-size: 0.7rem; padding: 2px 6px;" onclick="handleCatalogAddClick(${h.id})">+ Add</button>
+      <button type="button" class="btn btn-primary btn-sm" style="font-size: 0.7rem; padding: 2px 6px;" onclick="playCatalogHymn(${h.id})">▶ Play</button>
     `;
     container.appendChild(card);
   });

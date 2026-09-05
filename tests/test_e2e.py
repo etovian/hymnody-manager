@@ -113,3 +113,18 @@ def test_alphabetized_filters_and_sorting(tmp_path):
         assert (h1["disc_number"], h1["track_number"]) <= (h2["disc_number"], h2["track_number"])
 
 
+def test_catalog_play_button_rendering():
+    res = client.get("/static/app.js")
+    assert res.status_code == 200
+    app_js_text = res.text
+
+    # Assert helper function exists
+    assert "function playCatalogHymn(" in app_js_text, "playCatalogHymn helper function should be defined in app.js"
+
+    # Assert ▶ Play button is rendered in hymnal catalog and template editor search
+    assert "playCatalogHymn(" in app_js_text
+    assert "▶ Play" in app_js_text
+    assert 'onclick="handleCatalogAddClick' not in app_js_text, "+ Add button should be replaced with Play button in catalog list and template editor"
+
+
+
