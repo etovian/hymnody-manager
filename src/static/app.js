@@ -988,18 +988,9 @@ function renderTemplateSlotsUI(items) {
       draggedHymnId = null;
       e.dataTransfer.setData('text/plain', JSON.stringify({ type: 'template-slot', idx }));
     };
-    row.ondragover = (e) => {
-      e.preventDefault();
-      row.classList.add('drag-over');
-    };
-    row.ondragleave = () => {
-      row.classList.remove('drag-over');
-    };
-    row.ondrop = (e) => {
-      e.preventDefault();
-      row.classList.remove('drag-over');
-      onTemplateSlotDrop(e, idx);
-    };
+    row.ondragover = onTemplateSlotDragOver;
+    row.ondragleave = onTemplateSlotDragLeave;
+    row.ondrop = (e) => onTemplateSlotDrop(e, idx);
 
     const isHymn = !item.match_term || item.match_term === 'HYMN_SLOT';
     const badgeClass = isHymn ? 'badge-hymn' : 'badge-audio';
@@ -1060,9 +1051,38 @@ function onTemplateListDrop(e) {
   }
 }
 
+function onTemplateSlotDragOver(e) {
+  e.preventDefault();
+  const rect = e.currentTarget.getBoundingClientRect();
+  const y = e.clientY - rect.top;
+  const pct = y / rect.height;
+
+  e.currentTarget.classList.remove('drag-insert-above', 'drag-insert-below', 'drag-replace', 'drag-over');
+
+  if (pct < 0.25) {
+    activeDragMode = 'insert-above';
+    e.currentTarget.classList.add('drag-insert-above');
+  } else if (pct > 0.75) {
+    activeDragMode = 'insert-below';
+    e.currentTarget.classList.add('drag-insert-below');
+  } else {
+    activeDragMode = 'replace';
+    e.currentTarget.classList.add('drag-replace');
+  }
+}
+
+function onTemplateSlotDragLeave(e) {
+  e.currentTarget.classList.remove('drag-insert-above', 'drag-insert-below', 'drag-replace', 'drag-over');
+}
+
 function onTemplateSlotDrop(e, targetIdx) {
+  e.preventDefault();
+  e.currentTarget.classList.remove('drag-insert-above', 'drag-insert-below', 'drag-replace', 'drag-over');
   if (!selectedTemplateForEdit || !selectedTemplateForEdit.items) return;
-  
+
+  const mode = activeDragMode || 'replace';
+  activeDragMode = null;
+
   let hId = draggedHymnId;
   if (hId === null) {
     try {
@@ -1074,22 +1094,40 @@ function onTemplateSlotDrop(e, targetIdx) {
   if (hId !== null && hId !== undefined) {
     const hymn = currentHymns.find(h => h.id === hId);
     if (hymn) {
-      selectedTemplateForEdit.items[targetIdx] = {
+      const newSlot = {
         slot_name: hymn.title,
         match_term: hymn.title,
         item_title: hymn.title
       };
+      if (mode === 'replace') {
+        selectedTemplateForEdit.items[targetIdx] = newSlot;
+      } else if (mode === 'insert-above') {
+        selectedTemplateForEdit.items.splice(targetIdx, 0, newSlot);
+      } else if (mode === 'insert-below') {
+        selectedTemplateForEdit.items.splice(targetIdx + 1, 0, newSlot);
+      }
       renderTemplateSlotsUI(selectedTemplateForEdit.items);
     }
     draggedHymnId = null;
-  } else if (draggedTemplateSlotIdx !== null && draggedTemplateSlotIdx !== targetIdx) {
+  } else if (draggedTemplateSlotIdx !== null) {
+    if (draggedTemplateSlotIdx === targetIdx && mode === 'replace') return;
     const items = selectedTemplateForEdit.items;
     const [moved] = items.splice(draggedTemplateSlotIdx, 1);
-    items.splice(targetIdx, 0, moved);
+    
+    let destIndex = targetIdx;
+    if (mode === 'insert-below') {
+      destIndex = targetIdx + (draggedTemplateSlotIdx < targetIdx ? 0 : 1);
+    } else if (mode === 'insert-above') {
+      destIndex = targetIdx - (draggedTemplateSlotIdx < targetIdx ? 1 : 0);
+      if (destIndex < 0) destIndex = 0;
+    }
+    
+    items.splice(destIndex, 0, moved);
     renderTemplateSlotsUI(items);
     draggedTemplateSlotIdx = null;
   }
 }
+
 
 function addHymnPlaceholderSlotUI() {
   if (!selectedTemplateForEdit) return;

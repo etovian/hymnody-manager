@@ -211,6 +211,17 @@ def test_create_and_save_custom_template_in_tab2(tmp_path):
     assert del_res.status_code == 200
 
 
+def test_template_drag_and_drop_insertion_logic():
+    res = client.get("/static/app.js")
+    assert res.status_code == 200
+    js = res.text
+
+    assert "onTemplateSlotDragOver" in js, "onTemplateSlotDragOver function should be defined in app.js"
+    assert "onTemplateSlotDragLeave" in js, "onTemplateSlotDragLeave function should be defined in app.js"
+    assert "insert-above" in js and "insert-below" in js
+
+
+
 
 
 
