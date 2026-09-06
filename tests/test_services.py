@@ -344,6 +344,26 @@ def test_create_service_matins_common_no_duplicate_antiphon_track(tmp_path):
     assert items[1]['file_path'] == r'C:\music\31-05 MA - Antiphon.m4a'
 
 
+def test_list_templates_alphabetical_order(tmp_path):
+    from src.services import list_templates, save_template, seed_templates_if_empty
+    db_path = str(tmp_path / "alphabetical_templates_test.db")
+    init_db(db_path)
+    seed_templates_if_empty(db_path)
+
+    # Save custom templates with various names
+    save_template(name="Bad Tracks", description="Custom", items=[], db_path=db_path)
+    save_template(name="DS1 (Common)", description="Custom", items=[], db_path=db_path)
+    save_template(name="Alpha Setting", description="Custom", items=[], db_path=db_path)
+    save_template(name="Zebra Setting", description="Custom", items=[], db_path=db_path)
+
+    templates = list_templates(db_path)
+    names = [t['name'] for t in templates]
+    expected = sorted(names, key=lambda s: s.lower())
+
+    assert names == expected, f"Templates are not alphabetized. Got: {names}, expected: {expected}"
+
+
+
 
 
 

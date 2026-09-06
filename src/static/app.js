@@ -923,6 +923,7 @@ async function loadTemplatesUI() {
   try {
     const res = await fetch('/api/templates');
     availableTemplates = await res.json();
+    availableTemplates.sort((a, b) => (a.name || '').localeCompare(b.name || '', undefined, { sensitivity: 'base' }));
     populatePresetDropdown();
 
     if (availableTemplates.length > 0 && !selectedTemplateForEdit) {

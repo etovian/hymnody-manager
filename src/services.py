@@ -139,7 +139,7 @@ def list_templates(db_path="hymnody.db"):
     seed_templates_if_empty(db_path)
     with get_db_connection(db_path) as conn:
         cursor = conn.cursor()
-        cursor.execute("SELECT * FROM service_templates ORDER BY is_builtin DESC, name ASC")
+        cursor.execute("SELECT * FROM service_templates ORDER BY name COLLATE NOCASE ASC")
         templates = [dict(r) for r in cursor.fetchall()]
         for t in templates:
             cursor.execute("SELECT * FROM template_items WHERE template_id = ? ORDER BY sequence_order ASC", (t['id'],))
