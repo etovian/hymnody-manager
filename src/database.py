@@ -1,5 +1,6 @@
 import sqlite3
 import os
+import re
 
 DEFAULT_DB_PATH = "hymnody.db"
 
@@ -86,29 +87,55 @@ def init_db(db_path=DEFAULT_DB_PATH):
                 FOREIGN KEY (template_id) REFERENCES service_templates(id) ON DELETE CASCADE
             );
         """)
-        # Deduplicate hymns where REPLACE(LOWER(file_path), '/', '\') matches
-        # 1. Update service_items references from old duplicate hymn_id to MAX(id)
+        # Deduplicate hymns:
+        # For explicit tracks (disc_number > 0 and track_number > 0), deduplicate by (disc_number, track_number),
+        # preferring canonical (non-suffixed) file paths over ' 1.m4a' suffixed ones.
+        # For unnumbered/other tracks, deduplicate by normalized file_path.
+        
+        # 1. Update service_items references to point to surviving canonical hymn_id
         cursor.execute("""
             UPDATE service_items
-            SET hymn_id = (
-                SELECT MAX(h2.id)
-                FROM hymns h1
-                JOIN hymns h2 ON REPLACE(LOWER(h1.file_path), '/', '\\') = REPLACE(LOWER(h2.file_path), '/', '\\')
-                WHERE h1.id = service_items.hymn_id
-            )
-            WHERE hymn_id IS NOT NULL AND hymn_id IN (
-                SELECT h1.id FROM hymns h1
-                JOIN hymns h2 ON REPLACE(LOWER(h1.file_path), '/', '\\') = REPLACE(LOWER(h2.file_path), '/', '\\') AND h1.id < h2.id
-            );
+            SET hymn_id = COALESCE((
+                SELECT target.id
+                FROM hymns current_hymn
+                JOIN hymns target ON (
+                    (current_hymn.disc_number > 0 AND current_hymn.track_number > 0 AND current_hymn.disc_number = target.disc_number AND current_hymn.track_number = target.track_number)
+                    OR (REPLACE(LOWER(current_hymn.file_path), '/', '\\') = REPLACE(LOWER(target.file_path), '/', '\\'))
+                )
+                WHERE current_hymn.id = service_items.hymn_id
+                ORDER BY 
+                    CASE WHEN target.file_path GLOB '* [0-9].m4a' OR target.file_path GLOB '* [0-9][0-9].m4a' THEN 1 ELSE 0 END ASC,
+                    LENGTH(target.file_path) ASC,
+                    target.id DESC
+                LIMIT 1
+            ), service_items.hymn_id)
+            WHERE hymn_id IS NOT NULL;
         """)
         
-        # 2. Delete duplicate hymns keeping MAX(id)
+        # 2. Delete duplicate hymns, keeping surviving canonical entry
         cursor.execute("""
             DELETE FROM hymns
             WHERE id NOT IN (
-                SELECT MAX(id)
-                FROM hymns
-                GROUP BY REPLACE(LOWER(file_path), '/', '\\')
+                SELECT id FROM (
+                    SELECT id,
+                           ROW_NUMBER() OVER (
+                               PARTITION BY disc_number, track_number
+                               ORDER BY 
+                                   CASE WHEN file_path GLOB '* [0-9].m4a' OR file_path GLOB '* [0-9][0-9].m4a' THEN 1 ELSE 0 END ASC,
+                                   LENGTH(file_path) ASC,
+                                   id DESC
+                           ) as rn
+                    FROM hymns
+                    WHERE disc_number > 0 AND track_number > 0
+                    UNION ALL
+                    SELECT id,
+                           ROW_NUMBER() OVER (
+                               PARTITION BY REPLACE(LOWER(file_path), '/', '\\')
+                               ORDER BY id DESC
+                           ) as rn
+                    FROM hymns
+                    WHERE disc_number <= 0 OR track_number <= 0
+                ) WHERE rn = 1
             );
         """)
 
@@ -125,6 +152,30 @@ def save_hymns(hymns_list, db_path=DEFAULT_DB_PATH):
         cursor = conn.cursor()
         for h in hymns_list:
             norm_path = normalize_path(h.get('file_path'))
+            disc_num = h.get('disc_number', 1)
+            track_num = h.get('track_number', 1)
+            
+            # Check if (disc_number, track_number) already exists under a canonical (non-suffixed) file_path
+            if disc_num is not None and track_num is not None and disc_num > 0 and track_num > 0:
+                existing = cursor.execute(
+                    "SELECT id, file_path FROM hymns WHERE disc_number = ? AND track_number = ?", 
+                    (disc_num, track_num)
+                ).fetchall()
+                
+                is_candidate_suffixed = bool(re.search(r' \d+\.m4a$', norm_path, re.IGNORECASE))
+                
+                if is_candidate_suffixed:
+                    has_canonical_existing = any(
+                        not re.search(r' \d+\.m4a$', ex['file_path'], re.IGNORECASE)
+                        for ex in existing
+                    )
+                    if has_canonical_existing:
+                        continue
+                else:
+                    for ex in existing:
+                        if re.search(r' \d+\.m4a$', ex['file_path'], re.IGNORECASE):
+                            cursor.execute("DELETE FROM hymns WHERE id = ?", (ex['id'],))
+
             cursor.execute("""
                 INSERT OR REPLACE INTO hymns 
                 (hymn_number, title, disc_number, track_number, album, artist, year, file_path, liturgical_season)
@@ -132,8 +183,8 @@ def save_hymns(hymns_list, db_path=DEFAULT_DB_PATH):
             """, (
                 h.get('hymn_number'),
                 h.get('title'),
-                h.get('disc_number', 1),
-                h.get('track_number', 1),
+                disc_num,
+                track_num,
                 h.get('album', 'The Concordia Organist'),
                 h.get('artist', 'Concordia Publishing House'),
                 h.get('year', 2009),

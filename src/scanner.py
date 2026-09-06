@@ -88,14 +88,17 @@ def parse_hymn_file(filepath):
         year = 2009
         
     disc_num, track_num = 1, 1
+    has_explicit_disc_track = False
     if 'disk' in raw_tags:
         try:
             disc_num = int(raw_tags['disk'].split('/')[0])
+            has_explicit_disc_track = True
         except Exception:
             pass
     if 'trkn' in raw_tags:
         try:
             track_num = int(raw_tags['trkn'].split('/')[0])
+            has_explicit_disc_track = True
         except Exception:
             pass
             
@@ -106,6 +109,7 @@ def parse_hymn_file(filepath):
     if fn_match:
         disc_num = int(fn_match.group(1))
         track_num = int(fn_match.group(2))
+        has_explicit_disc_track = True
         if fn_match.group(3):
             hymn_number = int(fn_match.group(3))
         title = fn_match.group(4).strip()
@@ -176,16 +180,27 @@ def parse_hymn_file(filepath):
         'album': album,
         'artist': artist,
         'year': year,
-        'liturgical_season': season
+        'liturgical_season': season,
+        'has_explicit_disc_track': has_explicit_disc_track
     }
 
 def scan_hymns_directory(directory_path):
     files = glob.glob(os.path.join(directory_path, '*.m4a'))
+    files.sort(key=lambda f: (1 if re.search(r'\s\d+\.m4a$', os.path.basename(f), re.IGNORECASE) else 0, len(os.path.basename(f)), f))
     results = []
+    seen_tracks = set()
     for f in files:
         try:
             parsed = parse_hymn_file(f)
+            is_explicit = parsed.get('has_explicit_disc_track', False)
+            has_hymn = parsed.get('hymn_number') is not None
+            if is_explicit or has_hymn:
+                track_key = (parsed['disc_number'], parsed['track_number'])
+                if track_key in seen_tracks:
+                    continue
+                seen_tracks.add(track_key)
             results.append(parsed)
         except Exception as e:
             print(f"Error parsing {f}: {e}")
     return results
+
