@@ -252,6 +252,21 @@ def test_client_side_draft_service_exact_title_match_in_app_js():
     assert "prefixMatch = exactMatch || allTracks.find" in js, "createDraftServiceLocally in app.js must prioritize prefix matches before substring matches"
 
 
+def test_index_contains_toast_container():
+    res = client.get("/")
+    assert res.status_code == 200
+    assert '<div id="toast-container"' in res.text
+
+
+def test_app_js_includes_show_toast():
+    res = client.get("/static/app.js?v=2")
+    assert res.status_code == 200
+    assert "function showToast" in res.text
+    assert "let selectedTemplateForEdit =" in res.text, "selectedTemplateForEdit must be declared at module scope in app.js"
+
+
+
+
 
 
 

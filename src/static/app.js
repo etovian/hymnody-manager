@@ -12,6 +12,7 @@ let currentRubricStatus = null;
 let allSavedServices = [];
 let explorerFilterMode = 'all';
 let availableTemplates = [];
+let selectedTemplateForEdit = null;
 let activeCatalogTab = 'hymn';
 const HYMN_SEASONS = [
   { label: 'All Hymns', value: '' },
@@ -90,6 +91,7 @@ async function fetchHymns(query = '') {
     searchModalCatalog();
   } catch (err) {
     console.error("Error fetching hymns:", err);
+    showToast(err.message || "Network error", "error", "API Error");
   }
 }
 
@@ -340,6 +342,7 @@ async function fetchOrCreateService() {
     }
   } catch (err) {
     console.error("Error fetching service:", err);
+    showToast(err.message || "Network error", "error", "API Error");
     await createDraftServiceLocally();
   }
 }
@@ -426,18 +429,26 @@ async function createDraftServiceLocally(presetVal = 'DS2') {
 async function createNewService() {
   const presetVal = document.getElementById('preset-select')?.value || 'DS2';
   await createDraftServiceLocally(presetVal);
+  showToast("Created new service plan", "info", "New Service");
 }
 
 async function changeSettingPreset() {
   const select = document.getElementById('preset-select');
   const presetVal = select ? select.value : 'DS2';
+  const presetKey = presetVal;
   await createDraftServiceLocally(presetVal);
+  showToast(`Switched setting preset to ${presetKey}`, "info");
 }
 
 async function restoreOfficialPreset() {
-  document.getElementById('rubric-popover').classList.add('hidden');
-  const presetVal = currentService?.setting_preset || 'DS2';
-  await createDraftServiceLocally(presetVal);
+  try {
+    document.getElementById('rubric-popover').classList.add('hidden');
+    const presetVal = currentService?.setting_preset || 'DS2';
+    await createDraftServiceLocally(presetVal);
+  } catch (err) {
+    console.error("Error restoring official preset:", err);
+    showToast(err.message || "Network error", "error", "API Error");
+  }
 }
 
 async function loadService(serviceId) {
@@ -512,8 +523,10 @@ async function saveActiveServiceUI() {
       saveBtn.textContent = '✓ Saved!';
       setTimeout(() => { markServiceClean(); }, 1500);
     }
+    showToast("Service plan saved successfully", "success", "Plan Saved");
   } catch (err) {
     console.error("Error saving service:", err);
+    showToast(err.message || "Failed to save service plan", "error", "Save Failed");
   }
 }
 
@@ -757,6 +770,7 @@ async function deleteServiceFromExplorer(serviceId) {
     if (currentService && currentService.id === serviceId) {
       await fetchOrCreateService();
     }
+    showToast("Service plan deleted", "warning", "Service Deleted");
   } catch (err) {
     console.error("Error deleting service:", err);
   }
@@ -909,14 +923,17 @@ async function duplicateTemplateFromModal(templateId) {
     await loadTemplatesUI();
     selectTemplateUI(saved.id);
     closeTemplateSelectorModal();
+    showToast("Created template duplicate", "success");
   } catch (err) {
     console.error("Error duplicating template:", err);
+    showToast(err.message || "Network error", "error", "API Error");
   }
 }
 
 function createNewTemplateFromModal() {
   createNewTemplateUI();
   closeTemplateSelectorModal();
+  showToast("New template created", "success");
 }
 
 async function loadTemplatesUI() {
@@ -934,6 +951,7 @@ async function loadTemplatesUI() {
     }
   } catch (err) {
     console.error("Error loading templates:", err);
+    showToast(err.message || "Network error", "error", "API Error");
   }
 }
 
@@ -1255,8 +1273,10 @@ async function saveTemplateFromUI() {
     const saved = await res.json();
     selectedTemplateForEdit = saved;
     await loadTemplatesUI();
+    showToast("Template saved successfully", "success", "Template Saved");
   } catch (err) {
     console.error("Error saving template:", err);
+    showToast(err.message || "Failed to save template", "error", "Save Failed");
   }
 }
 
@@ -1268,8 +1288,10 @@ async function deleteTemplateUI() {
     await fetch(`/api/templates/${selectedTemplateForEdit.id}`, { method: 'DELETE' });
     selectedTemplateForEdit = null;
     await loadTemplatesUI();
+    showToast("Template removed", "warning", "Template Deleted");
   } catch (err) {
     console.error("Error deleting template:", err);
+    showToast(err.message || "Network error", "error", "API Error");
   }
 }
 
@@ -1403,23 +1425,127 @@ function setVolume(vol) {
 
 // Export Mobile Package Zip
 async function exportMobileZip() {
-  if (!currentService) return;
-  if (!currentService.id || isServiceDirty) {
-    await saveActiveServiceUI();
-  }
-  if (!currentService || !currentService.id) {
-    alert("Please save the service plan before exporting.");
-    return;
-  }
-
-  const missingItems = (currentService.items || []).filter(item => !item.file_path || !item.file_path.trim());
-  if (missingItems.length > 0) {
-    const listStr = missingItems.map(it => `• Item ${String(it.sequence_order || 1).padStart(2, '0')}: ${it.slot_name} (${it.item_title})`).join('\n');
-    const msg = `Notice: ${missingItems.length} item(s) in this worship service plan do not have audio files bound:\n\n${listStr}\n\nThese items will be omitted from the exported ZIP package. Track sequence numbering (01, 03, 05...) will be preserved for exported files.\n\nDo you want to proceed with export anyway?`;
-    if (!confirm(msg)) {
+  try {
+    if (!currentService) return;
+    if (!currentService.id || isServiceDirty) {
+      await saveActiveServiceUI();
+    }
+    if (!currentService || !currentService.id) {
+      alert("Please save the service plan before exporting.");
       return;
     }
+
+    const missingItems = (currentService.items || []).filter(item => item.is_missing || item.audio_missing || !item.file_path || !item.file_path.trim());
+    if (missingItems.length > 0) {
+      const listStr = missingItems.map(it => `• Item ${String(it.sequence_order || 1).padStart(2, '0')}: ${it.slot_name} (${it.item_title})`).join('\n');
+      const msg = `Notice: ${missingItems.length} item(s) in this worship service plan do not have audio files bound:\n\n${listStr}\n\nThese items will be omitted from the exported ZIP package. Track sequence numbering (01, 03, 05...) will be preserved for exported files.\n\nDo you want to proceed with export anyway?`;
+      if (!confirm(msg)) {
+        return;
+      }
+    }
+
+    showToast("Generating mobile ZIP package...", "info", "Export Started");
+
+    const res = await fetch(`/api/services/${currentService.id}/export/zip`);
+    if (!res.ok) {
+      throw new Error(`Export server error (${res.status})`);
+    }
+
+    const blob = await res.blob();
+    const downloadUrl = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = downloadUrl;
+    const contentDisposition = res.headers.get('Content-Disposition');
+    let filename = `hymnody_export_${currentService.id}.zip`;
+    if (contentDisposition && contentDisposition.includes('filename=')) {
+      filename = contentDisposition.split('filename=')[1].replace(/["']/g, '');
+    }
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    window.URL.revokeObjectURL(downloadUrl);
+
+    if (missingItems.length > 0) {
+      showToast("Package downloaded with missing audio files", "warning", "Missing Audio Alert");
+    } else {
+      showToast("Mobile package downloaded successfully", "success", "Export Complete");
+    }
+  } catch (err) {
+    console.error("Error exporting mobile package:", err);
+    showToast(err.message || "Failed to export mobile package", "error", "Export Failed");
+  }
+}
+
+// Notification Toasts Engine
+function showToast(message, type = 'info', title = null, duration = null) {
+  const container = document.getElementById('toast-container');
+  if (!container) return;
+
+  const iconMap = {
+    success: '✓',
+    info: 'ℹ',
+    warning: '⚠',
+    error: '✕'
+  };
+
+  const defaultDurations = {
+    success: 4000,
+    info: 4000,
+    warning: 8000,
+    error: 0
+  };
+
+  const autoDuration = duration !== null ? duration : (defaultDurations[type] ?? 4000);
+
+  while (container.children.length >= 5) {
+    container.removeChild(container.firstElementChild);
   }
 
-  window.location.href = `/api/services/${currentService.id}/export/zip`;
+  const toast = document.createElement('div');
+  toast.className = `toast toast-${type}`;
+
+  const iconSpan = document.createElement('span');
+  iconSpan.className = 'toast-icon';
+  iconSpan.textContent = iconMap[type] || 'ℹ';
+
+  const bodyDiv = document.createElement('div');
+  bodyDiv.className = 'toast-body';
+
+  if (title) {
+    const titleDiv = document.createElement('div');
+    titleDiv.className = 'toast-title';
+    titleDiv.textContent = title;
+    bodyDiv.appendChild(titleDiv);
+  }
+
+  const msgDiv = document.createElement('div');
+  msgDiv.className = 'toast-message';
+  msgDiv.textContent = message;
+  bodyDiv.appendChild(msgDiv);
+
+  const closeBtn = document.createElement('button');
+  closeBtn.className = 'toast-close';
+  closeBtn.innerHTML = '&times;';
+  closeBtn.onclick = () => removeToast(toast);
+
+  toast.appendChild(iconSpan);
+  toast.appendChild(bodyDiv);
+  toast.appendChild(closeBtn);
+  container.appendChild(toast);
+
+  if (autoDuration > 0) {
+    setTimeout(() => removeToast(toast), autoDuration);
+  }
 }
+
+function removeToast(toast) {
+  if (!toast || !toast.parentNode) return;
+  toast.style.animation = 'fadeOutRight 0.2s ease-in forwards';
+  setTimeout(() => {
+    if (toast.parentNode) {
+      toast.parentNode.removeChild(toast);
+    }
+  }, 200);
+}
+
