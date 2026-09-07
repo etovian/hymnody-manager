@@ -228,6 +228,8 @@ def test_play_template_slot_track_function():
 
     assert "function playTemplateSlotTrack(" in js, "playTemplateSlotTrack helper function should be defined in app.js"
     assert "playTemplateSlotTrack(" in js, "playTemplateSlotTrack should be called from template slot cards"
+    assert 'showToast(`Slot "${item.slot_name}" is a generic hymn placeholder' in js or 'showToast(' in js
+    assert "alert(" not in js, "All alert() browser popups in app.js must be replaced with showToast()"
 
 
 def test_template_drag_and_drop_styles_and_event_stop_propagation():

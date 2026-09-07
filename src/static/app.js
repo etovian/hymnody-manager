@@ -1097,7 +1097,7 @@ async function playTemplateSlotTrack(slotIndex) {
   const term = item.match_term || '';
 
   if (!term || term === 'HYMN_SLOT') {
-    alert(`Slot "${item.slot_name}" is a generic hymn placeholder. Drag a specific track from the hymnal catalog onto this slot to bind audio.`);
+    showToast(`Slot "${item.slot_name}" is a generic hymn placeholder. Drag a specific track from the hymnal catalog onto this slot to bind audio.`, "info", "Hymn Placeholder");
     return;
   }
 
@@ -1127,7 +1127,7 @@ async function playTemplateSlotTrack(slotIndex) {
     const itemTitle = match.hymn_number ? `LSB ${match.hymn_number} - ${match.title}` : match.title;
     updatePlayerUI({ item_title: itemTitle, slot_name: `Template Slot • ${item.slot_name}` });
   } else {
-    alert(`No audio track found matching "${term}". You can drag a track from the catalog to bind audio.`);
+    showToast(`No audio track found matching "${term}". You can drag a track from the catalog to bind audio.`, "warning", "Audio Missing");
   }
 }
 
@@ -1623,7 +1623,7 @@ async function exportMobileZip() {
       await saveActiveServiceUI();
     }
     if (!currentService || !currentService.id) {
-      alert("Please save the service plan before exporting.");
+      showToast("Please save the service plan before exporting", "warning", "Save Required");
       return;
     }
 
