@@ -398,6 +398,22 @@ def test_get_service_details_relinks_orphaned_hymn_ids(tmp_path):
     assert details['items'][0]['hymn_id'] == real_id
 
 
+def test_service_date_sorting_helper(tmp_path):
+    from src.services import create_service_from_preset, list_services
+    db_path = str(tmp_path / "sorting_helper_test.db")
+    init_db(db_path)
+
+    create_service_from_preset("Past Service", "2026-01-01", setting_preset="DS1", db_path=db_path)
+    create_service_from_preset("Future Service", "2026-12-25", setting_preset="DS2", db_path=db_path)
+    create_service_from_preset("Mid Service", "2026-06-15", setting_preset="DS3", db_path=db_path)
+
+    services = list_services(db_path=db_path)
+    assert len(services) == 3
+    dates = [s['service_date'] for s in services]
+    assert dates == ["2026-12-25", "2026-06-15", "2026-01-01"]
+
+
+
 
 
 

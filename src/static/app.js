@@ -2,8 +2,10 @@
 
 let currentHymns = [];
 let currentService = null;
+let mobileService = null;
 let activeTrackIndex = -1;
 let isPlaying = false;
+let currentView = 'desktop';
 let activeSeason = '';
 let draggedHymnId = null;
 let draggedItemIndex = null;
@@ -57,6 +59,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 // View Switcher (Desktop vs Sanctuary Mobile Mode)
 function switchView(mode) {
+  currentView = mode;
   const desktopView = document.getElementById('desktop-view');
   const mobileView = document.getElementById('mobile-view');
   const playerBar = document.getElementById('desktop-player-bar');
@@ -330,11 +333,70 @@ function onServiceMetadataChange() {
   markServiceDirty();
 }
 
+function escapeHtml(str) {
+  if (!str) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
+function buildServiceOptionsHtml(services, selectedId) {
+  if (!services || services.length === 0) {
+    return '<option value="">No saved services found</option>';
+  }
+  return services.map(s => {
+    const isSel = String(s.id) === String(selectedId) ? 'selected' : '';
+    const title = escapeHtml(s.title || 'Service');
+    const preset = s.setting_preset ? escapeHtml(` (${s.setting_preset})`) : '';
+    const dateStr = s.service_date || 'No Date';
+    return `<option value="${s.id}" ${isSel}>${dateStr} • ${title}${preset}</option>`;
+  }).join('');
+}
+
+function selectDefaultMobileService(services) {
+  if (!services || services.length === 0) return null;
+  const now = new Date();
+  const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+
+  // 1. Current date match
+  const exact = services.find(s => s.service_date === today);
+  if (exact) return exact;
+
+  // 2. Nearest future service (service_date > today, smallest date)
+  const futureServices = services.filter(s => s.service_date && s.service_date > today)
+    .sort((a, b) => a.service_date.localeCompare(b.service_date));
+  if (futureServices.length > 0) return futureServices[0];
+
+  // 3. Most recent past service (service_date < today, largest date)
+  const pastServices = services.filter(s => s.service_date && s.service_date < today)
+    .sort((a, b) => b.service_date.localeCompare(a.service_date));
+  if (pastServices.length > 0) return pastServices[0];
+
+  // Fallback to first available
+  return services[0];
+}
+
+function updateMobileServiceDropdown(services) {
+  const mobileSelect = document.getElementById('mobile-service-select');
+  if (!mobileSelect) return;
+  const defService = selectDefaultMobileService(services);
+  const selectedId = defService ? defService.id : null;
+  mobileSelect.innerHTML = buildServiceOptionsHtml(services, selectedId);
+  if (selectedId && (!mobileService || mobileService.id !== selectedId)) {
+    onMobileServiceSelectChanged(selectedId);
+  }
+}
+
 // Fetch or Create Active Service
 async function fetchOrCreateService() {
   try {
     const res = await fetch('/api/services');
     const services = await res.json();
+    allSavedServices = services;
+    updateMobileServiceDropdown(services);
     if (services.length > 0) {
       await loadService(services[0].id);
     } else {
@@ -536,8 +598,6 @@ function renderService(service) {
   const subtitle = `${service.service_date || ''}${service.liturgical_day ? ' • ' + service.liturgical_day : ''} | Setting: ${service.setting_preset || ''}`;
   document.getElementById('service-title-display').textContent = `Service Plan: ${service.title || 'Sunday Service'}`;
   document.getElementById('service-subtitle-display').textContent = subtitle;
-  document.getElementById('mobile-service-title').textContent = service.title || 'Sunday Service';
-  document.getElementById('mobile-service-subtitle').textContent = subtitle;
 
   document.getElementById('service-date-input').value = service.service_date || new Date().toISOString().split('T')[0];
   document.getElementById('liturgical-day-input').value = service.liturgical_day || '';
@@ -546,9 +606,7 @@ function renderService(service) {
   }
 
   const container = document.getElementById('service-items-container');
-  const mobilePlaylist = document.getElementById('mobile-playlist-container');
   container.innerHTML = '';
-  mobilePlaylist.innerHTML = '';
 
   (service.items || []).forEach((item, index) => {
     const hasAudio = Boolean(item.file_path && item.file_path.trim());
@@ -583,17 +641,13 @@ function renderService(service) {
       </div>
     `;
     container.appendChild(el);
-
-    const mItem = document.createElement('div');
-    mItem.className = `mobile-playlist-item ${index === activeTrackIndex ? 'active' : ''}`;
-    mItem.onclick = () => playServiceTrack(index);
-    const mSubtitle = hasAudio ? (item.hymn_id ? 'Hymn' : 'Audio Track') : '⚠️ Unbound';
-    mItem.innerHTML = `
-      <span>${index + 1}. ${item.item_title}</span>
-      <span class="subtitle">${mSubtitle}</span>
-    `;
-    mobilePlaylist.appendChild(mItem);
   });
+
+  if (!mobileService) {
+    mobileService = service;
+    renderMobileServiceInfo();
+  }
+  renderMobilePlaylist();
 
   fetchRubricStatus(service.id);
 }
@@ -677,6 +731,7 @@ async function fetchServicesExplorerList() {
   try {
     const res = await fetch('/api/services');
     allSavedServices = await res.json();
+    updateMobileServiceDropdown(allSavedServices);
     renderServicesExplorerList();
   } catch (err) {
     console.error("Error fetching saved services:", err);
@@ -1296,10 +1351,109 @@ async function deleteTemplateUI() {
 }
 
 // Audio Playback & Transport Controls
+function toggleMobileTrack(index) {
+  const currentList = mobileService ? (mobileService.items || []) : [];
+  if (!currentList[index]) return;
+  const item = currentList[index];
+
+  if (!item.file_path || !item.file_path.trim()) {
+    showToast("No audio track bound to this item", "warning", "Missing Audio");
+    return;
+  }
+
+  if (activeTrackIndex === index && isPlaying) {
+    audioPlayer.pause();
+    isPlaying = false;
+    updatePlayButtonUI();
+  } else if (activeTrackIndex === index && !isPlaying) {
+    audioPlayer.play().catch(err => console.error("Playback error:", err));
+    isPlaying = true;
+    updatePlayButtonUI();
+  } else {
+    playServiceTrack(index);
+  }
+}
+
+function renderMobilePlaylist() {
+  const mobilePlaylist = document.getElementById('mobile-playlist-container');
+  if (!mobilePlaylist) return;
+  mobilePlaylist.innerHTML = '';
+
+  const items = mobileService ? (mobileService.items || []) : [];
+  if (items.length === 0) {
+    mobilePlaylist.innerHTML = '<div style="color: #94a3b8; font-size: 0.9rem; padding: 1rem; text-align: center;">No service selected or service has no items.</div>';
+    return;
+  }
+
+  items.forEach((item, index) => {
+    const hasAudio = Boolean(item.file_path && item.file_path.trim());
+    const isActive = (index === activeTrackIndex);
+
+    let stateClass = '';
+    let badgeHtml = '';
+
+    if (isActive) {
+      if (isPlaying) {
+        stateClass = 'active-playing';
+        badgeHtml = '<span class="badge-playing">▶ PLAYING</span>';
+      } else {
+        stateClass = 'active-paused';
+        badgeHtml = '<span class="badge-paused">⏸ PAUSED</span>';
+      }
+    } else if (!hasAudio) {
+      badgeHtml = '<span class="badge-missing-audio">⚠️ Unbound</span>';
+    } else {
+      badgeHtml = `<span class="subtitle" style="font-size: 0.8rem; color: #94a3b8;">${item.hymn_id ? 'Hymn' : 'Audio Track'}</span>`;
+    }
+
+    const mItem = document.createElement('div');
+    mItem.className = `mobile-playlist-item ${stateClass}`;
+    mItem.onclick = () => toggleMobileTrack(index);
+    mItem.innerHTML = `
+      <div style="display: flex; flex-direction: column; align-items: flex-start;">
+        <span style="font-weight: 700; color: white;">${index + 1}. ${escapeHtml(item.item_title)}</span>
+        <span class="subtitle" style="font-size: 0.8rem; color: #94a3b8;">${escapeHtml(item.slot_name)}</span>
+      </div>
+      <div>${badgeHtml}</div>
+    `;
+    mobilePlaylist.appendChild(mItem);
+  });
+}
+
+async function onMobileServiceSelectChanged(serviceId) {
+  if (!serviceId) return;
+  try {
+    const res = await fetch(`/api/services/${serviceId}`);
+    if (res.ok) {
+      mobileService = await res.json();
+      activeTrackIndex = -1;
+      isPlaying = false;
+      audioPlayer.pause();
+      renderMobileServiceInfo();
+      renderMobilePlaylist();
+    } else {
+      showToast("Failed to load service", "error", "Network Error");
+    }
+  } catch (err) {
+    console.error("Error changing mobile service:", err);
+    showToast("Failed to load service", "error", "Network Error");
+  }
+}
+
+function renderMobileServiceInfo() {
+  if (!mobileService) return;
+  const subtitle = `${mobileService.service_date || ''}${mobileService.liturgical_day ? ' • ' + mobileService.liturgical_day : ''} | Setting: ${mobileService.setting_preset || ''}`;
+  const titleEl = document.getElementById('mobile-service-title');
+  const subEl = document.getElementById('mobile-service-subtitle');
+  if (titleEl) titleEl.textContent = mobileService.title || 'Sunday Service';
+  if (subEl) subEl.textContent = subtitle;
+}
+
 function playServiceTrack(index) {
-  if (!currentService || !currentService.items || !currentService.items[index]) return;
+  const activeService = (currentView === 'mobile' && mobileService && mobileService.items) ? mobileService : currentService;
+  if (!activeService || !activeService.items || !activeService.items[index]) return;
   activeTrackIndex = index;
-  const item = currentService.items[index];
+  const item = activeService.items[index];
 
   let match = null;
   if (item.hymn_id) {
@@ -1326,14 +1480,15 @@ function playServiceTrack(index) {
     isPlaying = true;
     updatePlayerUI(item);
   } else {
-    alert(`No audio file bound to slot "${item.slot_name}" (${item.item_title}). You can drag a track from the hymnal catalog to bind audio.`);
+    showToast("No audio track bound to this item", "warning", "Missing Audio");
   }
 }
 
 function togglePlayPause() {
+  const activeService = (currentView === 'mobile' && mobileService && mobileService.items) ? mobileService : currentService;
   if (!audioPlayer.src) {
-    if (currentService && currentService.items.length > 0) {
-      const nextPlayable = currentService.items.findIndex(it => Boolean(it.file_path));
+    if (activeService && activeService.items && activeService.items.length > 0) {
+      const nextPlayable = activeService.items.findIndex(it => Boolean(it.file_path));
       if (nextPlayable !== -1) {
         playServiceTrack(nextPlayable);
       }
@@ -1344,17 +1499,18 @@ function togglePlayPause() {
     audioPlayer.pause();
     isPlaying = false;
   } else {
-    audioPlayer.play();
+    audioPlayer.play().catch(err => console.error("Playback error:", err));
     isPlaying = true;
   }
   updatePlayButtonUI();
 }
 
 function playNextTrack() {
-  if (!currentService || !currentService.items) return;
+  const activeService = (currentView === 'mobile' && mobileService && mobileService.items) ? mobileService : currentService;
+  if (!activeService || !activeService.items) return;
   let nextIdx = activeTrackIndex + 1;
-  while (nextIdx < currentService.items.length) {
-    const item = currentService.items[nextIdx];
+  while (nextIdx < activeService.items.length) {
+    const item = activeService.items[nextIdx];
     if (item.hymn_id || item.file_path) {
       playServiceTrack(nextIdx);
       return;
@@ -1364,7 +1520,8 @@ function playNextTrack() {
 }
 
 function playPrevTrack() {
-  if (!currentService || !currentService.items) return;
+  const activeService = (currentView === 'mobile' && mobileService && mobileService.items) ? mobileService : currentService;
+  if (!activeService || !activeService.items) return;
   if (audioPlayer.currentTime > 3) {
     audioPlayer.currentTime = 0;
   } else if (activeTrackIndex > 0) {
@@ -1372,11 +1529,35 @@ function playPrevTrack() {
   }
 }
 
+function restartCurrentTrack() {
+  if (activeTrackIndex < 0 || !audioPlayer.src) {
+    showToast("No active track to restart", "warning", "Restart");
+    return;
+  }
+
+  audioPlayer.currentTime = 0;
+
+  const bar = document.getElementById('mobile-progress-bar');
+  if (bar) bar.style.width = '0%';
+  const curTime = document.getElementById('mobile-time-current');
+  if (curTime) curTime.textContent = formatTime(0);
+  const deskScrubber = document.getElementById('desktop-scrubber');
+  if (deskScrubber) deskScrubber.value = 0;
+  const deskCur = document.getElementById('desktop-time-current');
+  if (deskCur) deskCur.textContent = formatTime(0);
+
+  showToast("Track restarted from beginning", "info", "Track Reset");
+}
+
 function updatePlayerUI(item) {
   const title = item ? item.item_title : 'No track selected';
   document.getElementById('desktop-track-title').textContent = title;
   document.getElementById('mobile-track-title').textContent = title;
   document.getElementById('mobile-track-subtitle').textContent = item ? item.slot_name : '--';
+  const restartBtn = document.getElementById('mobile-restart-btn');
+  if (restartBtn) {
+    restartBtn.disabled = (activeTrackIndex < 0);
+  }
   updatePlayButtonUI();
 }
 
@@ -1386,14 +1567,16 @@ function updatePlayButtonUI() {
   const mLabel = document.getElementById('mobile-play-label');
 
   if (isPlaying) {
-    dBtn.textContent = '⏸';
-    mIcon.textContent = '⏸';
-    mLabel.textContent = 'PAUSE';
+    if (dBtn) dBtn.textContent = '⏸';
+    if (mIcon) mIcon.textContent = '⏸';
+    if (mLabel) mLabel.textContent = 'PAUSE';
   } else {
-    dBtn.textContent = '▶';
-    mIcon.textContent = '▶';
-    mLabel.textContent = 'PLAY';
+    if (dBtn) dBtn.textContent = '▶';
+    if (mIcon) mIcon.textContent = '▶';
+    if (mLabel) mLabel.textContent = 'PLAY';
   }
+
+  renderMobilePlaylist();
 }
 
 function setupAudioListeners() {

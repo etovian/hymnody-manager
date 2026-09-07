@@ -178,6 +178,7 @@
           <span class="sanctuary-badge mb-2">📶 Sanctuary Bluetooth Engine</span>
           <h2 id="mobile-service-title" style="font-size: 1.5rem; font-weight: 800; color: white;">Sunday Worship Service</h2>
           <p id="mobile-service-subtitle" class="subtitle">Divine Service Setting Two</p>
+          <select id="mobile-service-select" class="mobile-service-select" aria-label="Select Worship Service" onchange="onMobileServiceSelectChanged(this.value)"></select>
         </div>
 
         <div class="now-playing-box">
@@ -192,23 +193,7 @@
             <span id="mobile-time-current" class="time-text">0:00</span>
             <span id="mobile-time-total" class="time-text">0:00</span>
           </div>
-        </div>
-
-        <div class="giant-controls-grid">
-          <button class="control-btn" onclick="playPrevTrack()">
-            <span class="icon">⏮</span>
-            <span class="label">PREVIOUS</span>
-          </button>
-
-          <button class="control-btn btn-main" onclick="togglePlayPause()">
-            <span id="mobile-play-icon" class="icon">▶</span>
-            <span id="mobile-play-label" class="label font-bold">PLAY</span>
-          </button>
-
-          <button class="control-btn" onclick="playNextTrack()">
-            <span class="icon">⏭</span>
-            <span class="label">NEXT TRACK</span>
-          </button>
+          <button type="button" id="mobile-restart-btn" class="mobile-restart-btn" onclick="restartCurrentTrack()" disabled><span aria-hidden="true">🔄</span> RESTART TRACK</button>
         </div>
 
         <div class="mobile-track-list-section" style="text-align: left;">

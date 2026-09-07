@@ -265,14 +265,120 @@ def test_app_js_includes_show_toast():
     assert "let selectedTemplateForEdit =" in res.text, "selectedTemplateForEdit must be declared at module scope in app.js"
 
 
+def test_mobile_mode_task3_js_functions():
+    res = client.get("/static/app.js")
+    assert res.status_code == 200
+    js = res.text
+
+    assert "function toggleMobileTrack(" in js, "toggleMobileTrack function should be defined in app.js"
+    assert "function renderMobilePlaylist(" in js, "renderMobilePlaylist function should be defined in app.js"
+    assert "function onMobileServiceSelectChanged(" in js, "onMobileServiceSelectChanged function should be defined in app.js"
+    assert "function renderMobileServiceInfo(" in js, "renderMobileServiceInfo function should be defined in app.js"
+    assert "badge-playing" in js, "renderMobilePlaylist should render badge-playing class"
+    assert "badge-paused" in js, "renderMobilePlaylist should render badge-paused class"
+    assert "badge-missing-audio" in js, "renderMobilePlaylist should render badge-missing-audio class"
 
 
+def test_mobile_mode_task3_code_quality():
+    res = client.get("/static/app.js")
+    assert res.status_code == 200
+    js = res.text
+
+    # 1. updateMobileServiceDropdown auto-fetches full service details
+    assert "onMobileServiceSelectChanged(selectedId)" in js
+
+    # 2. Sync / Transport Service Resolution checks currentView === 'mobile'
+    assert "currentView === 'mobile' && mobileService && mobileService.items" in js
+
+    # 3. Catch audioPlayer.play() in toggleMobileTrack
+    assert "audioPlayer.play().catch(" in js
+
+    # 4. Error toast in onMobileServiceSelectChanged
+    assert 'showToast("Failed to load service", "error", "Network Error")' in js
 
 
+def test_mobile_service_selection_api_e2e(tmp_path):
+    db_path = str(tmp_path / "e2e_mobile_service.db")
+    os.environ["HYMNODY_DB_PATH"] = db_path
+    os.environ["MUSIC_DIR"] = r"c:\dev\IdeaProjects\hymnody-manager\music"
+    init_db(db_path)
+
+    # 1. Populate database with audio tracks
+    scan_res = client.post("/api/scan")
+    assert scan_res.status_code == 200
+
+    # 2. Create service plans for mobile selection
+    srv1_res = client.post("/api/services", json={
+        "title": "Divine Service 1 Sanctuary",
+        "service_date": "2026-09-13",
+        "setting_preset": "DS1",
+        "liturgical_color": "Green",
+        "liturgical_day": "16th Sunday after Trinity"
+    })
+    assert srv1_res.status_code == 200
+    srv1 = srv1_res.json()
+    srv1_id = srv1["id"]
+
+    srv2_res = client.post("/api/services", json={
+        "title": "Evening Vespers Service",
+        "service_date": "2026-09-20",
+        "setting_preset": "Vespers",
+        "liturgical_color": "Violet"
+    })
+    assert srv2_res.status_code == 200
+    srv2_id = srv2_res.json()["id"]
+
+    # 3. Retrieve service list for mobile selector (/api/services)
+    services_res = client.get("/api/services")
+    assert services_res.status_code == 200
+    services_list = services_res.json()
+    assert len(services_list) == 2
+    service_ids = [s["id"] for s in services_list]
+    assert srv1_id in service_ids
+    assert srv2_id in service_ids
+
+    # 4. Fetch specific service details including `items` payload for mobile mode playback (/api/services/{id})
+    detail_res = client.get(f"/api/services/{srv1_id}")
+    assert detail_res.status_code == 200
+    detail = detail_res.json()
+
+    assert detail["id"] == srv1_id
+    assert detail["title"] == "Divine Service 1 Sanctuary"
+    assert detail["setting_preset"] == "DS1"
+    assert "items" in detail
+    assert isinstance(detail["items"], list)
+    assert len(detail["items"]) > 0
+
+    # Verify items contain necessary metadata for mobile playback execution
+    for item in detail["items"]:
+        assert "sequence_order" in item
+        assert "slot_name" in item
+        assert "item_title" in item
+        assert "file_path" in item
+
+    # 5. Non-existent service ID returns 404
+    invalid_res = client.get("/api/services/999999")
+    assert invalid_res.status_code == 404
 
 
+def test_mobile_track_restart_logic():
+    # Verify index.html contains mobile restart button with restartCurrentTrack() click handler and disabled attribute
+    res_index = client.get("/")
+    assert res_index.status_code == 200
+    html = res_index.text
+    assert '<button type="button" id="mobile-restart-btn"' in html
+    assert 'onclick="restartCurrentTrack()"' in html
+    assert 'disabled' in html
 
+    # Verify app.js contains function restartCurrentTrack()
+    res_js = client.get("/static/app.js")
+    assert res_js.status_code == 200
+    js = res_js.text
+    assert "function restartCurrentTrack()" in js
 
-
-
+    # Verify styles.css contains .mobile-restart-btn rules
+    res_css = client.get("/static/styles.css")
+    assert res_css.status_code == 200
+    css = res_css.text
+    assert ".mobile-restart-btn" in css
 

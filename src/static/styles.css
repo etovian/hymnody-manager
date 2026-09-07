@@ -221,21 +221,51 @@ body {
 /* Sanctuary Mobile Mode UI */
 .mobile-container { max-width: 650px; margin: 0 auto; width: 100%; }
 .mobile-card { background: var(--card-bg); border: 1px solid var(--card-border); border-radius: 16px; padding: 1.75rem; display: flex; flex-direction: column; gap: 1.5rem; text-align: center; }
+.mobile-service-select {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  font-size: 1rem;
+  font-weight: bold;
+  background: #1e293b;
+  border: 2px solid #3b82f6;
+  color: white;
+  border-radius: 0.5rem;
+  margin-top: 0.75rem;
+}
 .now-playing-box { background: var(--bg-dark); border: 2px solid rgba(59, 130, 246, 0.8); border-radius: 14px; padding: 1.5rem; }
 .track-status { font-size: 0.75rem; font-weight: 700; color: #60a5fa; letter-spacing: 0.1em; display: block; margin-bottom: 0.25rem; }
-
-.giant-controls-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; }
-.control-btn { background: #334155; border: 1px solid #475569; border-radius: 16px; padding: 1.5rem 0.5rem; color: white; cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; transition: transform 0.1s, background 0.2s; }
-.control-btn:hover { background: #475569; }
-.control-btn:active { transform: scale(0.96); }
-.control-btn.btn-main { background: var(--accent-blue); border-color: #60a5fa; }
-.control-btn.btn-main:hover { background: var(--accent-blue-hover); }
-.control-btn .icon { font-size: 1.75rem; margin-bottom: 0.25rem; }
-.control-btn .label { font-size: 0.75rem; font-weight: 700; text-transform: uppercase; }
 
 .mobile-playlist { max-height: 220px; overflow-y: auto; display: flex; flex-direction: column; gap: 0.5rem; }
 .mobile-playlist-item { background: var(--bg-dark); border: 1px solid var(--card-border); border-radius: 10px; padding: 0.875rem 1rem; text-align: left; color: var(--text-main); font-size: 0.875rem; width: 100%; display: flex; justify-content: space-between; cursor: pointer; }
 .mobile-playlist-item.active { background: rgba(59, 130, 246, 0.25); border-color: var(--accent-blue); font-weight: 700; }
+.mobile-playlist-item.active-playing {
+  border: 2px solid #3b82f6;
+  background: #1e3a8a;
+}
+.mobile-playlist-item.active-paused {
+  border: 2px solid #f59e0b;
+  background: #78350f;
+}
+
+.badge-playing {
+  background: #2563eb;
+  color: white;
+  font-weight: 800;
+  padding: 0.25rem 0.6rem;
+  border-radius: 9999px;
+  text-transform: uppercase;
+  font-size: 0.75rem;
+}
+
+.badge-paused {
+  background: #d97706;
+  color: white;
+  font-weight: 800;
+  padding: 0.25rem 0.6rem;
+  border-radius: 9999px;
+  text-transform: uppercase;
+  font-size: 0.75rem;
+}
 
 /* Persistent Player Bar */
 .player-bar { background: var(--card-bg); border: 1px solid var(--card-border); border-radius: 12px; padding: 0.875rem 1.5rem; display: flex; justify-content: space-between; align-items: center; gap: 1rem; }
@@ -523,6 +553,40 @@ body {
     opacity: 0;
   }
 }
+
+.mobile-restart-btn {
+  width: 100%;
+  min-height: 44px;
+  padding: 0.75rem 1rem;
+  margin-top: 0.75rem;
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: #e2e8f0;
+  background-color: #334155;
+  border: 1px solid #475569;
+  border-radius: 0.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  cursor: pointer;
+  transition: all 0.15s ease-in-out;
+}
+
+.mobile-restart-btn:hover:not(:disabled) {
+  background-color: #475569;
+  border-color: #64748b;
+}
+
+.mobile-restart-btn:active:not(:disabled) {
+  transform: scale(0.98);
+}
+
+.mobile-restart-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 
 
 
