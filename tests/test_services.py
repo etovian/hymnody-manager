@@ -363,6 +363,41 @@ def test_list_templates_alphabetical_order(tmp_path):
     assert names == expected, f"Templates are not alphabetized. Got: {names}, expected: {expected}"
 
 
+def test_get_service_details_relinks_orphaned_hymn_ids(tmp_path):
+    from src.database import get_db_connection
+    db_path = str(tmp_path / "test_get_service_details_relink.db")
+    init_db(db_path)
+
+    sample_hymn = [{
+        'hymn_number': 331,
+        'title': 'The advent of our King',
+        'disc_number': 1,
+        'track_number': 1,
+        'album': 'The Concordia Organist',
+        'artist': 'Concordia Publishing House',
+        'year': 2009,
+        'file_path': r'C:\music\1-01 331.m4a',
+        'liturgical_season': 'Advent'
+    }]
+    save_hymns(sample_hymn, db_path)
+
+    with get_db_connection(db_path) as conn:
+        cursor = conn.cursor()
+        real_id = cursor.execute("SELECT id FROM hymns LIMIT 1").fetchone()['id']
+        cursor.execute("INSERT INTO services (service_date, title) VALUES ('2026-01-01', 'Test Service')")
+        s_id = cursor.lastrowid
+        # Insert service item with stale/orphaned hymn_id 888888
+        cursor.execute("""
+            INSERT INTO service_items (service_id, hymn_id, item_title, slot_name, sequence_order, file_path)
+            VALUES (?, 888888, 'The advent of our King', 'Opening Hymn', 1, ?)
+        """, (s_id, r'C:\music\1-01 331.m4a'))
+        conn.commit()
+
+    # Call get_service_details, which should automatically repair item's hymn_id
+    details = get_service_details(s_id, db_path=db_path)
+    assert details['items'][0]['hymn_id'] == real_id
+
+
 
 
 

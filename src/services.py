@@ -253,6 +253,34 @@ def get_service_details(service_id, db_path="hymnody.db"):
         
         cursor.execute("SELECT * FROM service_items WHERE service_id = ? ORDER BY sequence_order ASC", (service_id,))
         items = [dict(r) for r in cursor.fetchall()]
+
+        dirty = False
+        for item in items:
+            h_id = item.get('hymn_id')
+            fp = item.get('file_path')
+            hymn_valid = False
+            if h_id:
+                cursor.execute("SELECT id FROM hymns WHERE id = ?", (h_id,))
+                if cursor.fetchone():
+                    hymn_valid = True
+
+            if not hymn_valid and fp:
+                cursor.execute(
+                    "SELECT id FROM hymns WHERE REPLACE(LOWER(file_path), '/', '\\') = REPLACE(LOWER(?), '/', '\\') LIMIT 1",
+                    (fp,)
+                )
+                found = cursor.fetchone()
+                if not found and item.get('item_title'):
+                    cursor.execute("SELECT id FROM hymns WHERE LOWER(title) = LOWER(?) LIMIT 1", (item['item_title'],))
+                    found = cursor.fetchone()
+                if found:
+                    item['hymn_id'] = found['id']
+                    cursor.execute("UPDATE service_items SET hymn_id = ? WHERE id = ?", (found['id'], item['id']))
+                    dirty = True
+
+        if dirty:
+            conn.commit()
+
         service_dict['items'] = items
         return service_dict
 
