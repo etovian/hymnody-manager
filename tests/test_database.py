@@ -275,6 +275,43 @@ def test_search_hymns_exact_title_match_priority(tmp_path):
     assert results[1]['title'] == 'MA - Antiphon & Venite'
 
 
+def test_init_db_repairs_orphaned_service_item_hymn_ids(tmp_path):
+    db_path = str(tmp_path / "test_repair.db")
+    init_db(db_path)
+    
+    sample_hymn = [{
+        'hymn_number': 331,
+        'title': 'The advent of our King',
+        'disc_number': 1,
+        'track_number': 1,
+        'album': 'The Concordia Organist',
+        'artist': 'Concordia Publishing House',
+        'year': 2009,
+        'file_path': r'C:\music\1-01 331.m4a',
+        'liturgical_season': 'Advent'
+    }]
+    save_hymns(sample_hymn, db_path)
+    
+    with get_db_connection(db_path) as conn:
+        cursor = conn.cursor()
+        real_hymn_id = cursor.execute("SELECT id FROM hymns LIMIT 1").fetchone()['id']
+        cursor.execute("INSERT INTO services (service_date, title) VALUES ('2026-01-01', 'Test Service')")
+        s_id = cursor.lastrowid
+        # Insert item with non-existent hymn_id 999999 but matching file_path
+        cursor.execute("""
+            INSERT INTO service_items (service_id, hymn_id, item_title, slot_name, sequence_order, file_path)
+            VALUES (?, 999999, 'Test Item', 'Opening Hymn', 1, ?)
+        """, (s_id, r'C:\music\1-01 331.m4a'))
+        conn.commit()
+
+    # Re-run init_db to trigger repair query
+    init_db(db_path)
+    
+    with get_db_connection(db_path) as conn:
+        repaired_hymn_id = conn.execute("SELECT hymn_id FROM service_items WHERE service_id = ?", (s_id,)).fetchone()['hymn_id']
+        assert repaired_hymn_id == real_hymn_id
+
+
 
 
 

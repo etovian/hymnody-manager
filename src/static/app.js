@@ -1301,19 +1301,28 @@ function playServiceTrack(index) {
   activeTrackIndex = index;
   const item = currentService.items[index];
 
-  let audioUrl = '';
+  let match = null;
   if (item.hymn_id) {
+    match = currentHymns.find(h => h.id === item.hymn_id);
+  }
+  if (!match && item.file_path) {
+    const itemPath = (item.file_path || '').replace(/\//g, '\\').toLowerCase();
+    match = currentHymns.find(h => (h.file_path || '').replace(/\//g, '\\').toLowerCase() === itemPath);
+  }
+  if (!match && item.item_title) {
+    match = currentHymns.find(h => h.title && h.title.toLowerCase() === item.item_title.toLowerCase());
+  }
+
+  let audioUrl = '';
+  if (match) {
+    audioUrl = `/api/hymns/${match.id}/audio`;
+  } else if (item.hymn_id) {
     audioUrl = `/api/hymns/${item.hymn_id}/audio`;
-  } else if (item.file_path) {
-    const match = currentHymns.find(h => h.file_path === item.file_path);
-    if (match) {
-      audioUrl = `/api/hymns/${match.id}/audio`;
-    }
   }
 
   if (audioUrl) {
     audioPlayer.src = audioUrl;
-    audioPlayer.play();
+    audioPlayer.play().catch(err => console.error("Playback error:", err));
     isPlaying = true;
     updatePlayerUI(item);
   } else {

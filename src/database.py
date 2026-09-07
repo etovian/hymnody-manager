@@ -139,7 +139,20 @@ def init_db(db_path=DEFAULT_DB_PATH):
             );
         """)
 
-        # 3. Normalize surviving file_path values to standard format
+        # 3. Repair any service_items referencing deleted/orphaned hymn_ids by re-linking via file_path
+        cursor.execute("""
+            UPDATE service_items
+            SET hymn_id = (
+                SELECT h.id FROM hymns h
+                WHERE REPLACE(LOWER(h.file_path), '/', '\\') = REPLACE(LOWER(service_items.file_path), '/', '\\')
+                LIMIT 1
+            )
+            WHERE service_items.file_path IS NOT NULL 
+              AND service_items.file_path != '' 
+              AND (service_items.hymn_id IS NULL OR service_items.hymn_id NOT IN (SELECT id FROM hymns));
+        """)
+
+        # 4. Normalize surviving file_path values to standard format
         cursor.execute("SELECT id, file_path FROM hymns")
         for r in cursor.fetchall():
             norm = normalize_path(r['file_path'])
