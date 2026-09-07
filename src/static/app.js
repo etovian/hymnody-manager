@@ -50,6 +50,7 @@ const LITURGY_SERVICES = [
 const audioPlayer = document.getElementById('main-audio-player');
 
 document.addEventListener('DOMContentLoaded', () => {
+  initViewMode();
   renderFilterDropdown();
   fetchHymns();
   loadTemplatesUI();
@@ -58,8 +59,26 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 // View Switcher (Desktop vs Sanctuary Mobile Mode)
-function switchView(mode) {
+function initViewMode() {
+  const savedPreference = localStorage.getItem('hymnody_preferred_view');
+  if (savedPreference === 'mobile' || savedPreference === 'desktop') {
+    switchView(savedPreference, false);
+  } else {
+    const isMobileViewport = window.innerWidth < 768;
+    const isTouchDevice = window.matchMedia && window.matchMedia('(pointer: coarse)').matches;
+    if (isMobileViewport || isTouchDevice) {
+      switchView('mobile', false);
+    } else {
+      switchView('desktop', false);
+    }
+  }
+}
+
+function switchView(mode, isExplicitUserAction = true) {
   currentView = mode;
+  if (isExplicitUserAction) {
+    localStorage.setItem('hymnody_preferred_view', mode);
+  }
   const desktopView = document.getElementById('desktop-view');
   const mobileView = document.getElementById('mobile-view');
   const playerBar = document.getElementById('desktop-player-bar');
@@ -80,6 +99,7 @@ function switchView(mode) {
     btnDesktop.classList.remove('active');
   }
 }
+
 
 // Fetch Hymns Catalog
 async function fetchHymns(query = '') {

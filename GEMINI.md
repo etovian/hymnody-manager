@@ -90,7 +90,11 @@ c:\dev\IdeaProjects\hymnody-manager\
   ```bash
   pytest -v
   ```
-- **Start Development Server**:
+- **Start Development Server (LAN & Mobile Testing with Terminal QR Code)**:
+  ```bash
+  python run_server.py
+  ```
+- **Start Development Server (Local Only)**:
   ```bash
   uvicorn src.main:app --reload --port 8000
   ```
@@ -98,7 +102,8 @@ c:\dev\IdeaProjects\hymnody-manager\
   ```bash
   python scripts/cleanup_duplicates.py --dry-run
   ```
-- **Access App**: Open `http://localhost:8000` in browser.
+- **Access App**: Open `http://localhost:8000` (or scanned mobile LAN URL) in browser.
+
 
 ---
 
