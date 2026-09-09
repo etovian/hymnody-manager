@@ -20,8 +20,8 @@
         </div>
       </div>
       <div class="view-tabs">
-        <button id="btn-desktop-view" class="tab-btn active" onclick="switchView('desktop')">💻 Desktop Planner</button>
-        <button id="btn-mobile-view" class="tab-btn" onclick="switchView('mobile')">📱 Sanctuary Mobile Mode</button>
+        <button id="btn-desktop-view" class="tab-btn active" onclick="switchView('desktop')">💻 <span class="tab-label-full">Desktop Planner</span><span class="tab-label-short">Desktop</span></button>
+        <button id="btn-mobile-view" class="tab-btn" onclick="switchView('mobile')">📱 <span class="tab-label-full">Sanctuary Mobile Mode</span><span class="tab-label-short">Mobile</span></button>
       </div>
     </header>
 
@@ -175,25 +175,9 @@
     <section id="mobile-view" class="mobile-container hidden">
       <div class="mobile-card">
         <div class="mobile-header">
-          <span class="sanctuary-badge mb-2">📶 Sanctuary Bluetooth Engine</span>
           <h2 id="mobile-service-title" style="font-size: 1.5rem; font-weight: 800; color: white;">Sunday Worship Service</h2>
           <p id="mobile-service-subtitle" class="subtitle">Divine Service Setting Two</p>
           <select id="mobile-service-select" class="mobile-service-select" aria-label="Select Worship Service" onchange="onMobileServiceSelectChanged(this.value)"></select>
-        </div>
-
-        <div class="now-playing-box">
-          <span class="track-status">NOW PLAYING</span>
-          <h3 id="mobile-track-title" style="font-size: 1.35rem; font-weight: 700; color: white; margin: 0.5rem 0;">Select a track to start</h3>
-          <p id="mobile-track-subtitle" class="subtitle">--</p>
-          
-          <div class="progress-bar-container" style="width: 100%; background: #334155; height: 8px; border-radius: 9999px; overflow: hidden; margin-top: 1rem;">
-            <div id="mobile-progress-bar" style="background: #3b82f6; height: 100%; width: 0%; border-radius: 9999px;"></div>
-          </div>
-          <div class="flex-between time-display" style="margin-top: 0.375rem;">
-            <span id="mobile-time-current" class="time-text">0:00</span>
-            <span id="mobile-time-total" class="time-text">0:00</span>
-          </div>
-          <button type="button" id="mobile-restart-btn" class="mobile-restart-btn" onclick="restartCurrentTrack()" disabled><span aria-hidden="true">🔄</span> RESTART TRACK</button>
         </div>
 
         <div class="mobile-track-list-section" style="text-align: left;">

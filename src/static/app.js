@@ -85,18 +85,23 @@ function switchView(mode, isExplicitUserAction = true) {
   const btnDesktop = document.getElementById('btn-desktop-view');
   const btnMobile = document.getElementById('btn-mobile-view');
 
+  const headerEl = document.querySelector('.header');
+  if (headerEl) {
+    headerEl.classList.toggle('mobile-mode-active', mode === 'mobile');
+  }
+
   if (mode === 'desktop') {
-    desktopView.classList.remove('hidden');
-    mobileView.classList.add('hidden');
-    playerBar.classList.remove('hidden');
-    btnDesktop.classList.add('active');
-    btnMobile.classList.remove('active');
+    if (desktopView) desktopView.classList.remove('hidden');
+    if (mobileView) mobileView.classList.add('hidden');
+    if (playerBar) playerBar.classList.remove('hidden');
+    if (btnDesktop) btnDesktop.classList.add('active');
+    if (btnMobile) btnMobile.classList.remove('active');
   } else {
-    desktopView.classList.add('hidden');
-    mobileView.classList.remove('hidden');
-    playerBar.classList.add('hidden');
-    btnMobile.classList.add('active');
-    btnDesktop.classList.remove('active');
+    if (desktopView) desktopView.classList.add('hidden');
+    if (mobileView) mobileView.classList.remove('hidden');
+    if (playerBar) playerBar.classList.add('hidden');
+    if (btnMobile) btnMobile.classList.add('active');
+    if (btnDesktop) btnDesktop.classList.remove('active');
   }
 }
 
@@ -370,7 +375,7 @@ function buildServiceOptionsHtml(services, selectedId) {
   return services.map(s => {
     const isSel = String(s.id) === String(selectedId) ? 'selected' : '';
     const title = escapeHtml(s.title || 'Service');
-    const preset = s.setting_preset ? escapeHtml(` (${s.setting_preset})`) : '';
+    const preset = s.setting_preset ? escapeHtml(` • ${s.setting_preset}`) : '';
     const dateStr = s.service_date || 'No Date';
     return `<option value="${s.id}" ${isSel}>${dateStr} • ${title}${preset}</option>`;
   }).join('');
@@ -1370,36 +1375,99 @@ async function deleteTemplateUI() {
   }
 }
 
-// Audio Playback & Transport Controls
-function toggleMobileTrack(index) {
-  const currentList = mobileService ? (mobileService.items || []) : [];
-  if (!currentList[index]) return;
-  const item = currentList[index];
+// // Audio Playback & Transport Controls
+
+
+function onMobileTrackClicked(index) {
+  const activeService = (currentView === 'mobile' && mobileService && mobileService.items) ? mobileService : currentService;
+  if (!activeService || !activeService.items || !activeService.items[index]) return;
+  const item = activeService.items[index];
 
   if (!item.file_path || !item.file_path.trim()) {
     showToast("No audio track bound to this item", "warning", "Missing Audio");
     return;
   }
 
-  if (activeTrackIndex === index && isPlaying) {
-    audioPlayer.pause();
-    isPlaying = false;
-    updatePlayButtonUI();
-  } else if (activeTrackIndex === index && !isPlaying) {
-    audioPlayer.play().catch(err => console.error("Playback error:", err));
-    isPlaying = true;
-    updatePlayButtonUI();
+  if (activeTrackIndex === index) {
+    togglePlayPause();
   } else {
+    activeTrackIndex = index;
     playServiceTrack(index);
+    renderMobilePlaylist();
   }
 }
 
-function renderMobilePlaylist() {
+function toggleMobileTrack(index) {
+  onMobileTrackClicked(index);
+}
+
+function playTrack(index) {
+  playServiceTrack(index);
+}
+
+function toggleMobilePlayPause(event) {
+  if (event && typeof event.stopPropagation === 'function') {
+    event.stopPropagation();
+  }
+  togglePlayPause();
+}
+
+function seekAudioMobile(value) {
+  seekAudio(value);
+}
+
+function getTrackCategoryBadge(item, hasAudio) {
+  if (!hasAudio) {
+    return { text: '⚠️ Unbound', cssClass: 'badge-missing-audio' };
+  }
+
+  const titleStr = (item.item_title || item.title || '').trim();
+  const slotStr = (item.slot_name || '').trim();
+
+  // Check if track is a hymn vs a liturgical ordinary
+  const isHymnByTitle = /^LSB\s+\d+/i.test(titleStr);
+  const isHymnBySlot = /hymn/i.test(slotStr);
+  const isLiturgyByPrefix = /^(DS[1-5]|Matins|Vespers|Compline|Morning Prayer|Evening Prayer|Psalm Tones)\b/i.test(titleStr);
+  const isOrdinarySlot = /^(Kyrie|Gloria|Salutation|Collect|Alleluia|Gospel|Offertory|Sanctus|Agnus Dei|Nunc Dimittis|Benedictus|Te Deum|Magnificat)\b/i.test(slotStr) || /^(Kyrie|Gloria|Salutation|Collect|Alleluia|Gospel|Offertory|Sanctus|Agnus Dei|Nunc Dimittis|Benedictus|Te Deum|Magnificat)\b/i.test(titleStr);
+
+  if (isHymnByTitle || isHymnBySlot) {
+    return { text: 'Hymn', cssClass: 'badge-hymn' };
+  }
+
+  if (isLiturgyByPrefix || isOrdinarySlot || (slotStr && slotStr !== 'Selected Hymn')) {
+    return { text: 'Liturgy', cssClass: 'badge-liturgy' };
+  }
+
+  return { text: 'Hymn', cssClass: 'badge-hymn' };
+}
+
+function getDisplaySlot(item, displayTitle) {
+  const slotName = item.slot_name ? item.slot_name.trim() : '';
+  if (slotName && slotName !== displayTitle && slotName !== 'Selected Hymn') {
+    return slotName;
+  }
+
+  // Derive liturgical part/role from displayTitle if slot_name is absent or identical
+  let derived = displayTitle
+    .replace(/^DS[1-5]\s*[-:_]\s*/i, '')
+    .replace(/^(MA|VE|CO|MP|EP)\s*[-:_]\s*/i, '')
+    .replace(/_Amen$/i, '')
+    .replace(/\s+[A-Z]$/, '')
+    .trim();
+
+  if (derived && derived !== displayTitle) {
+    return derived;
+  }
+
+  return slotName !== displayTitle ? slotName : '';
+}
+
+function renderMobilePlaylist(service = mobileService) {
   const mobilePlaylist = document.getElementById('mobile-playlist-container');
   if (!mobilePlaylist) return;
   mobilePlaylist.innerHTML = '';
 
-  const items = mobileService ? (mobileService.items || []) : [];
+  const items = service ? (service.items || []) : [];
   if (items.length === 0) {
     mobilePlaylist.innerHTML = '<div style="color: #94a3b8; font-size: 0.9rem; padding: 1rem; text-align: center;">No service selected or service has no items.</div>';
     return;
@@ -1408,35 +1476,64 @@ function renderMobilePlaylist() {
   items.forEach((item, index) => {
     const hasAudio = Boolean(item.file_path && item.file_path.trim());
     const isActive = (index === activeTrackIndex);
+    const displayTitle = item.item_title || item.title || item.slot_name || `Track ${index + 1}`;
+    const displaySlot = getDisplaySlot(item, displayTitle);
 
-    let stateClass = '';
-    let badgeHtml = '';
+    const card = document.createElement('div');
 
     if (isActive) {
-      if (isPlaying) {
-        stateClass = 'active-playing';
-        badgeHtml = '<span class="badge-playing">▶ PLAYING</span>';
-      } else {
-        stateClass = 'active-paused';
-        badgeHtml = '<span class="badge-paused">⏸ PAUSED</span>';
-      }
-    } else if (!hasAudio) {
-      badgeHtml = '<span class="badge-missing-audio">⚠️ Unbound</span>';
+      card.className = 'mobile-track-card active-track-card';
+
+      const currentSec = audioPlayer.currentTime || 0;
+      const totalSec = audioPlayer.duration || 0;
+      const pctVal = totalSec ? (currentSec / totalSec) * 100 : 0;
+      const currentFormatted = formatTime(currentSec);
+      const totalFormatted = formatTime(totalSec);
+
+      card.innerHTML = `
+        <div class="mobile-track-header" onclick="onMobileTrackClicked(${index})">
+          <div class="mobile-track-info">
+            <span class="mobile-track-num">${String(index + 1).padStart(2, '0')}</span>
+            <div>
+              <div class="mobile-track-title">${escapeHtml(displayTitle)}</div>
+              ${displaySlot ? `<div class="mobile-track-slot">${escapeHtml(displaySlot)}</div>` : ''}
+            </div>
+          </div>
+          <span class="badge ${isPlaying ? 'badge-playing' : 'badge-paused'}">${isPlaying ? '▶ PLAYING' : '⏸ PAUSED'}</span>
+        </div>
+        <div class="inline-player-controls" onclick="event.stopPropagation()">
+          <input type="range" id="mobile-inline-scrubber" class="mobile-inline-scrubber" value="${pctVal}" min="0" max="100" onchange="seekAudioMobile(this.value)" onclick="event.stopPropagation()">
+          <div class="mobile-inline-time">
+            <span id="mobile-inline-current">${currentFormatted}</span>
+            <span id="mobile-inline-total">${totalFormatted}</span>
+          </div>
+          <div class="mobile-inline-btn-group">
+            <button type="button" class="mobile-inline-btn mobile-inline-btn-primary ${isPlaying ? '' : 'paused'}" onclick="toggleMobilePlayPause(event)"><span>${isPlaying ? '⏸ PAUSE TRACK' : '▶ RESUME TRACK'}</span></button>
+            <button type="button" class="mobile-inline-btn mobile-inline-btn-secondary" onclick="restartCurrentTrack(event)"><span>🔄 RESTART</span></button>
+          </div>
+        </div>
+      `;
     } else {
-      badgeHtml = `<span class="subtitle" style="font-size: 0.8rem; color: #94a3b8;">${item.hymn_id ? 'Hymn' : 'Audio Track'}</span>`;
+      card.className = 'mobile-track-card';
+      card.setAttribute('onclick', `onMobileTrackClicked(${index})`);
+
+      const badgeInfo = getTrackCategoryBadge(item, hasAudio);
+
+      card.innerHTML = `
+        <div class="mobile-track-header">
+          <div class="mobile-track-info">
+            <span class="mobile-track-num">${String(index + 1).padStart(2, '0')}</span>
+            <div>
+              <div class="mobile-track-title">${escapeHtml(displayTitle)}</div>
+              ${displaySlot ? `<div class="mobile-track-slot">${escapeHtml(displaySlot)}</div>` : ''}
+            </div>
+          </div>
+          <span class="badge ${badgeInfo.cssClass}">${escapeHtml(badgeInfo.text)}</span>
+        </div>
+      `;
     }
 
-    const mItem = document.createElement('div');
-    mItem.className = `mobile-playlist-item ${stateClass}`;
-    mItem.onclick = () => toggleMobileTrack(index);
-    mItem.innerHTML = `
-      <div style="display: flex; flex-direction: column; align-items: flex-start;">
-        <span style="font-weight: 700; color: white;">${index + 1}. ${escapeHtml(item.item_title)}</span>
-        <span class="subtitle" style="font-size: 0.8rem; color: #94a3b8;">${escapeHtml(item.slot_name)}</span>
-      </div>
-      <div>${badgeHtml}</div>
-    `;
-    mobilePlaylist.appendChild(mItem);
+    mobilePlaylist.appendChild(card);
   });
 }
 
@@ -1549,13 +1646,26 @@ function playPrevTrack() {
   }
 }
 
-function restartCurrentTrack() {
+function restartCurrentTrack(event) {
+  if (event && typeof event.stopPropagation === 'function') {
+    event.stopPropagation();
+  }
   if (activeTrackIndex < 0 || !audioPlayer.src) {
     showToast("No active track to restart", "warning", "Restart");
     return;
   }
 
   audioPlayer.currentTime = 0;
+  if (!isPlaying) {
+    audioPlayer.play().catch(err => console.error("Playback error:", err));
+    isPlaying = true;
+    updatePlayButtonUI();
+  }
+
+  const inlineScrubber = document.getElementById('mobile-inline-scrubber');
+  if (inlineScrubber) inlineScrubber.value = 0;
+  const inlineCurrent = document.getElementById('mobile-inline-current');
+  if (inlineCurrent) inlineCurrent.textContent = formatTime(0);
 
   const bar = document.getElementById('mobile-progress-bar');
   if (bar) bar.style.width = '0%';
@@ -1571,9 +1681,15 @@ function restartCurrentTrack() {
 
 function updatePlayerUI(item) {
   const title = item ? item.item_title : 'No track selected';
-  document.getElementById('desktop-track-title').textContent = title;
-  document.getElementById('mobile-track-title').textContent = title;
-  document.getElementById('mobile-track-subtitle').textContent = item ? item.slot_name : '--';
+  const deskTitle = document.getElementById('desktop-track-title');
+  if (deskTitle) deskTitle.textContent = title;
+
+  const mobTitle = document.getElementById('mobile-track-title');
+  if (mobTitle) mobTitle.textContent = title;
+
+  const mobSub = document.getElementById('mobile-track-subtitle');
+  if (mobSub) mobSub.textContent = item ? item.slot_name : '--';
+
   const restartBtn = document.getElementById('mobile-restart-btn');
   if (restartBtn) {
     restartBtn.disabled = (activeTrackIndex < 0);
@@ -1605,17 +1721,39 @@ function setupAudioListeners() {
     const total = audioPlayer.duration || 0;
     const pct = total ? (current / total) * 100 : 0;
 
-    document.getElementById('desktop-scrubber').value = pct;
-    document.getElementById('mobile-progress-bar').style.width = `${pct}%`;
-    document.getElementById('desktop-time-current').textContent = formatTime(current);
-    document.getElementById('desktop-time-total').textContent = formatTime(total);
-    document.getElementById('mobile-time-current').textContent = formatTime(current);
-    document.getElementById('mobile-time-total').textContent = formatTime(total);
+    const deskScrubber = document.getElementById('desktop-scrubber');
+    if (deskScrubber) deskScrubber.value = pct;
+
+    const mobProgressBar = document.getElementById('mobile-progress-bar');
+    if (mobProgressBar) mobProgressBar.style.width = `${pct}%`;
+
+    const deskTimeCurrent = document.getElementById('desktop-time-current');
+    if (deskTimeCurrent) deskTimeCurrent.textContent = formatTime(current);
+
+    const deskTimeTotal = document.getElementById('desktop-time-total');
+    if (deskTimeTotal) deskTimeTotal.textContent = formatTime(total);
+
+    const mobTimeCurrent = document.getElementById('mobile-time-current');
+    if (mobTimeCurrent) mobTimeCurrent.textContent = formatTime(current);
+
+    const mobTimeTotal = document.getElementById('mobile-time-total');
+    if (mobTimeTotal) mobTimeTotal.textContent = formatTime(total);
+
+    const inlineScrubber = document.getElementById('mobile-inline-scrubber');
+    if (inlineScrubber) inlineScrubber.value = pct;
+
+    const inlineCurrent = document.getElementById('mobile-inline-current');
+    if (inlineCurrent) inlineCurrent.textContent = formatTime(current);
+
+    const inlineTotal = document.getElementById('mobile-inline-total');
+    if (inlineTotal) inlineTotal.textContent = formatTime(total);
   });
 
   audioPlayer.addEventListener('ended', () => {
     isPlaying = false;
+    audioPlayer.currentTime = 0;
     updatePlayButtonUI();
+    renderMobilePlaylist();
   });
 }
 

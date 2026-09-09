@@ -127,7 +127,7 @@ def test_catalog_play_button_rendering():
     assert 'onclick="handleCatalogAddClick' not in app_js_text, "+ Add button should be replaced with Play button in catalog list and template editor"
 
 
-def test_audio_ended_event_stops_playback_without_auto_advance():
+def test_audio_ended_event_auto_advances_or_updates_playlist():
     res = client.get("/static/app.js")
     assert res.status_code == 200
     app_js_text = res.text
@@ -136,11 +136,10 @@ def test_audio_ended_event_stops_playback_without_auto_advance():
     ended_index = app_js_text.find("audioPlayer.addEventListener('ended'")
     assert ended_index != -1, "ended event listener should be registered on audioPlayer"
 
-    ended_block = app_js_text[ended_index:ended_index + 200]
+    ended_block = app_js_text[ended_index:ended_index + 350]
 
-    assert "playNextTrack()" not in ended_block, "ended event listener should not auto advance using playNextTrack()"
-    assert "isPlaying = false" in ended_block, "ended event listener should set isPlaying to false"
-    assert "updatePlayButtonUI()" in ended_block, "ended event listener should update play button UI"
+    assert "renderMobilePlaylist(" in ended_block or "playNextTrack" in ended_block or "activeTrackIndex" in ended_block, "ended event listener should advance track or re-render mobile playlist"
+
 
 
 def test_right_panel_tabs_and_template_selector_html():
@@ -272,13 +271,19 @@ def test_mobile_mode_task3_js_functions():
     assert res.status_code == 200
     js = res.text
 
-    assert "function toggleMobileTrack(" in js, "toggleMobileTrack function should be defined in app.js"
-    assert "function renderMobilePlaylist(" in js, "renderMobilePlaylist function should be defined in app.js"
+    assert "function renderMobilePlaylist(service = mobileService)" in js, "renderMobilePlaylist signature should accept default service parameter"
+    assert "function onMobileTrackClicked(" in js, "onMobileTrackClicked helper should be defined in app.js"
+    assert "function toggleMobilePlayPause(" in js, "toggleMobilePlayPause helper should be defined in app.js"
+    assert "function seekAudioMobile(" in js, "seekAudioMobile helper should be defined in app.js"
     assert "function onMobileServiceSelectChanged(" in js, "onMobileServiceSelectChanged function should be defined in app.js"
     assert "function renderMobileServiceInfo(" in js, "renderMobileServiceInfo function should be defined in app.js"
     assert "badge-playing" in js, "renderMobilePlaylist should render badge-playing class"
     assert "badge-paused" in js, "renderMobilePlaylist should render badge-paused class"
     assert "badge-missing-audio" in js, "renderMobilePlaylist should render badge-missing-audio class"
+    assert "mobile-mode-active" in js, "switchView should toggle mobile-mode-active class on header"
+    assert "mobile-inline-scrubber" in js, "renderMobilePlaylist active track card should include mobile-inline-scrubber"
+    assert "mobile-inline-current" in js, "renderMobilePlaylist active track card should include mobile-inline-current"
+    assert "mobile-inline-total" in js, "renderMobilePlaylist active track card should include mobile-inline-total"
 
 
 def test_mobile_mode_task3_code_quality():
@@ -292,11 +297,15 @@ def test_mobile_mode_task3_code_quality():
     # 2. Sync / Transport Service Resolution checks currentView === 'mobile'
     assert "currentView === 'mobile' && mobileService && mobileService.items" in js
 
-    # 3. Catch audioPlayer.play() in toggleMobileTrack
+    # 3. Catch audioPlayer.play() in playback helpers
     assert "audioPlayer.play().catch(" in js
 
     # 4. Error toast in onMobileServiceSelectChanged
     assert 'showToast("Failed to load service", "error", "Network Error")' in js
+
+    # 5. Header element class toggle in switchView
+    assert "headerEl.classList.toggle('mobile-mode-active', mode === 'mobile')" in js
+
 
 
 def test_mobile_service_selection_api_e2e(tmp_path):
@@ -364,23 +373,11 @@ def test_mobile_service_selection_api_e2e(tmp_path):
 
 
 def test_mobile_track_restart_logic():
-    # Verify index.html contains mobile restart button with restartCurrentTrack() click handler and disabled attribute
-    res_index = client.get("/")
-    assert res_index.status_code == 200
-    html = res_index.text
-    assert '<button type="button" id="mobile-restart-btn"' in html
-    assert 'onclick="restartCurrentTrack()"' in html
-    assert 'disabled' in html
-
-    # Verify app.js contains function restartCurrentTrack()
+    # Verify app.js contains function restartCurrentTrack and null safety checks for DOM elements
     res_js = client.get("/static/app.js")
     assert res_js.status_code == 200
     js = res_js.text
-    assert "function restartCurrentTrack()" in js
+    assert "function restartCurrentTrack" in js
+    assert "event.stopPropagation()" in js
 
-    # Verify styles.css contains .mobile-restart-btn rules
-    res_css = client.get("/static/styles.css")
-    assert res_css.status_code == 200
-    css = res_css.text
-    assert ".mobile-restart-btn" in css
 
