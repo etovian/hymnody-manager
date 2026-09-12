@@ -51,7 +51,9 @@ def export_service_zip(service_id: int, db_path: str = "hymnody.db") -> tuple[by
                 zf.write(file_path, arcname=track_filename)
                 m3u_lines.append(f"#EXTINF:-1,{raw_title}\n{track_filename}\n")
                 
-        zf.writestr("playlist.m3u", "".join(m3u_lines))
+        base_name = filename[:-4] if filename.endswith('.zip') else filename
+        playlist_filename = f"{base_name}.m3u"
+        zf.writestr(playlist_filename, "".join(m3u_lines))
         
     return buf.getvalue(), filename
 

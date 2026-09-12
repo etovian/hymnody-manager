@@ -82,10 +82,11 @@ def test_export_service_zip(tmp_path):
     
     with zipfile.ZipFile(io.BytesIO(zip_bytes)) as zf:
         names = zf.namelist()
-        assert "playlist.m3u" in names
+        assert "20260830_DS2.m3u" in names
+        assert "playlist.m3u" not in names
         assert any(n.endswith(".m4a") for n in names)
         
-        m3u_content = zf.read("playlist.m3u").decode("utf-8")
+        m3u_content = zf.read("20260830_DS2.m3u").decode("utf-8")
         assert "#EXTM3U" in m3u_content
 
 def test_export_service_zip_preserves_track_numbering_for_missing_files(tmp_path):
@@ -128,9 +129,38 @@ def test_export_service_zip_preserves_track_numbering_for_missing_files(tmp_path
         assert "01_Opening_Hymn_Test_Hymn_1.m4a" in namelist
         assert "03_Office_Hymn_Test_Hymn_3.m4a" in namelist
         assert "02_Venite_Venite_(O_Come).m4a" not in namelist
+        assert "20260901_Matins.m3u" in namelist
+        assert "playlist.m3u" not in namelist
         
-        m3u_content = zf.read("playlist.m3u").decode('utf-8')
+        m3u_content = zf.read("20260901_Matins.m3u").decode('utf-8')
         assert "01_Opening_Hymn_Test_Hymn_1.m4a" in m3u_content
         assert "03_Office_Hymn_Test_Hymn_3.m4a" in m3u_content
+
+def test_export_service_zip_playlist_filename_matches_zip_base_name(tmp_path):
+    db_path = str(tmp_path / "test_export_name.db")
+    init_db(db_path)
+    
+    from src.database import get_db_connection
+    with get_db_connection(db_path) as conn:
+        cursor = conn.cursor()
+        cursor.execute("""
+            INSERT INTO services (service_date, setting_preset, liturgical_day, title)
+            VALUES ('2026-10-25', 'DS3 Common', 'Pentecost 22', 'Sunday Worship')
+        """)
+        s_id = cursor.lastrowid
+        cursor.execute("""
+            INSERT INTO service_items (service_id, item_title, slot_name, sequence_order, file_path)
+            VALUES (?, 'Hymn 1', 'Opening Hymn', 1, '')
+        """, (s_id,))
+        conn.commit()
+        
+    zip_bytes, filename = export_service_zip(s_id, db_path=db_path)
+    assert filename == "20261025_DS3_Common_Pentecost_22.zip"
+    
+    with zipfile.ZipFile(io.BytesIO(zip_bytes), 'r') as zf:
+        namelist = zf.namelist()
+        assert "20261025_DS3_Common_Pentecost_22.m3u" in namelist
+        assert "playlist.m3u" not in namelist
+
 
 
