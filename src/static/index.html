@@ -148,20 +148,24 @@
                 </div>
               </div>
 
-              <div class="flex-between" style="margin-top: 4px; flex-wrap: wrap; gap: 8px;">
+              <div class="flex-between" style="margin-top: 4px; flex-wrap: wrap; gap: 8px; align-items: center;">
                 <h4 style="font-size: 0.9rem; font-weight: 700;">Template Slots & Ordinaries</h4>
-                <div style="display: flex; gap: 6px;">
-                  <button type="button" class="btn btn-primary btn-sm" onclick="addHymnPlaceholderSlotUI()">+ Hymn Placeholder</button>
-                  <button type="button" class="btn btn-primary btn-sm" onclick="addCustomSlotUI()">+ Custom Slot</button>
+                <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+                  <div id="drag-hymn-placeholder" class="draggable-slot-chip" draggable="true" ondragstart="onNewTemplateSlotDragStart(event, 'hymn_placeholder')" title="Drag into template list below">
+                    <span class="drag-handle">⋮⋮</span> + Hymn Placeholder
+                  </div>
+                  <div id="drag-custom-slot" class="draggable-slot-chip" draggable="true" ondragstart="onNewTemplateSlotDragStart(event, 'custom_slot')" title="Drag into template list below">
+                    <span class="drag-handle">⋮⋮</span> + Custom Slot
+                  </div>
+                  <button type="submit" id="btn-save-template" class="btn btn-emerald btn-sm">💾 Save Template</button>
                 </div>
               </div>
-              <p class="subtitle" style="font-size: 0.75rem; color: #60a5fa;">💡 Tip: Drag hymn or liturgy tracks from the left catalog directly into any slot below to bind audio.</p>
+              <p class="subtitle" style="font-size: 0.75rem; color: #60a5fa;">💡 Tip: Drag hymn or liturgy tracks from the left catalog, or slot chips above, directly into any slot below.</p>
 
               <div id="template-slots-editor-list" style="display: flex; flex-direction: column; gap: 8px; flex: 1; min-height: 150px; overflow-y: auto;" ondragover="onTemplateListDragOver(event)" ondrop="onTemplateListDrop(event)"></div>
 
               <div class="flex-between" style="padding-top: 8px; border-top: 1px solid #334155;">
                 <button type="button" id="btn-delete-template" class="btn btn-danger-text" onclick="deleteTemplateUI()">Delete Template</button>
-                <button type="submit" id="btn-save-template" class="btn btn-emerald">💾 Save Template</button>
               </div>
             </form>
           </div>

@@ -9,6 +9,7 @@ let currentView = 'desktop';
 let activeSeason = '';
 let draggedHymnId = null;
 let draggedItemIndex = null;
+let draggedNewSlotType = null;
 let activeDragMode = null; // 'insert-above', 'insert-below', or 'replace'
 let currentRubricStatus = null;
 let allSavedServices = [];
@@ -1165,12 +1166,49 @@ function updateTemplateItemField(index, field, value) {
   }
 }
 
+function onNewTemplateSlotDragStart(e, slotType) {
+  draggedNewSlotType = slotType;
+  draggedHymnId = null;
+  draggedTemplateSlotIdx = null;
+  if (e && e.dataTransfer) {
+    e.dataTransfer.setData('text/plain', JSON.stringify({ type: 'new-template-slot', slotType }));
+  }
+}
+
 function onTemplateListDragOver(e) {
   e.preventDefault();
 }
 
 function onTemplateListDrop(e) {
   e.preventDefault();
+  let slotType = draggedNewSlotType;
+  if (!slotType) {
+    try {
+      const data = JSON.parse(e.dataTransfer.getData('text/plain') || '{}');
+      if (data.type === 'new-template-slot') slotType = data.slotType;
+    } catch (err) {}
+  }
+
+  if (slotType && selectedTemplateForEdit) {
+    selectedTemplateForEdit.items = selectedTemplateForEdit.items || [];
+    if (slotType === 'hymn_placeholder') {
+      selectedTemplateForEdit.items.push({
+        slot_name: "Selected Hymn",
+        match_term: "HYMN_SLOT",
+        item_title: "Hymn Placeholder"
+      });
+    } else if (slotType === 'custom_slot') {
+      selectedTemplateForEdit.items.push({
+        slot_name: "New Canticle Slot",
+        match_term: "DS3 - Salutation",
+        item_title: "New Canticle Slot"
+      });
+    }
+    renderTemplateSlotsUI(selectedTemplateForEdit.items);
+    draggedNewSlotType = null;
+    return;
+  }
+
   let hId = draggedHymnId;
   if (hId === null) {
     try {
@@ -1227,6 +1265,44 @@ function onTemplateSlotDrop(e, targetIdx) {
 
   const mode = activeDragMode || 'replace';
   activeDragMode = null;
+
+  let slotType = draggedNewSlotType;
+  if (!slotType) {
+    try {
+      const data = JSON.parse(e.dataTransfer.getData('text/plain') || '{}');
+      if (data.type === 'new-template-slot') slotType = data.slotType;
+    } catch (err) {}
+  }
+
+  if (slotType) {
+    let newSlot = null;
+    if (slotType === 'hymn_placeholder') {
+      newSlot = {
+        slot_name: "Selected Hymn",
+        match_term: "HYMN_SLOT",
+        item_title: "Hymn Placeholder"
+      };
+    } else if (slotType === 'custom_slot') {
+      newSlot = {
+        slot_name: "New Canticle Slot",
+        match_term: "DS3 - Salutation",
+        item_title: "New Canticle Slot"
+      };
+    }
+
+    if (newSlot) {
+      if (mode === 'replace') {
+        selectedTemplateForEdit.items[targetIdx] = newSlot;
+      } else if (mode === 'insert-above') {
+        selectedTemplateForEdit.items.splice(targetIdx, 0, newSlot);
+      } else if (mode === 'insert-below') {
+        selectedTemplateForEdit.items.splice(targetIdx + 1, 0, newSlot);
+      }
+      renderTemplateSlotsUI(selectedTemplateForEdit.items);
+    }
+    draggedNewSlotType = null;
+    return;
+  }
 
   let hId = draggedHymnId;
   if (hId === null) {

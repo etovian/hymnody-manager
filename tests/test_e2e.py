@@ -381,3 +381,42 @@ def test_mobile_track_restart_logic():
     assert "event.stopPropagation()" in js
 
 
+def test_draggable_template_elements_html_and_top_save_button():
+    res = client.get("/")
+    assert res.status_code == 200
+    html = res.text
+
+    assert 'id="drag-hymn-placeholder"' in html, "#drag-hymn-placeholder element must exist in index.html"
+    assert 'id="drag-custom-slot"' in html, "#drag-custom-slot element must exist in index.html"
+    assert 'draggable="true"' in html, "Draggable attribute must be enabled on template slot chips"
+    assert 'addHymnPlaceholderSlotUI()' not in html, "Old + Hymn Placeholder button click handler should be replaced with draggable element"
+    assert 'addCustomSlotUI()' not in html, "Old + Custom Slot button click handler should be replaced with draggable element"
+    assert 'id="btn-save-template"' in html, "Save template button #btn-save-template must exist"
+
+    # Verify Save Template button is in the top section before template-slots-editor-list
+    save_idx = html.find('id="btn-save-template"')
+    slots_idx = html.find('id="template-slots-editor-list"')
+    assert save_idx != -1 and slots_idx != -1, "Both #btn-save-template and #template-slots-editor-list must exist"
+    assert save_idx < slots_idx, "#btn-save-template should be located in top header before #template-slots-editor-list"
+
+
+def test_draggable_template_elements_js_logic():
+    res = client.get("/static/app.js")
+    assert res.status_code == 200
+    js = res.text
+
+    assert "function onNewTemplateSlotDragStart(" in js, "onNewTemplateSlotDragStart function should be defined in app.js"
+    assert "draggedNewSlotType" in js, "draggedNewSlotType state variable should be defined in app.js"
+    assert "new-template-slot" in js or "draggedNewSlotType" in js, "Drop handlers in app.js should handle new template slot types"
+
+
+def test_draggable_template_elements_styles():
+    res = client.get("/static/styles.css")
+    assert res.status_code == 200
+    css = res.text
+
+    assert ".draggable-slot-chip" in css, "CSS rule for .draggable-slot-chip should exist in styles.css"
+    assert "cursor: grab" in css or "cursor:grab" in css, "styles.css should specify grab cursor for draggable slot chips"
+
+
+
