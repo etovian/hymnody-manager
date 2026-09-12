@@ -1,4 +1,5 @@
 import os
+import sqlite3
 import pytest
 from src.database import init_db, save_hymns, search_hymns, get_hymn_by_id, get_db_connection, normalize_path
 
@@ -310,6 +311,43 @@ def test_init_db_repairs_orphaned_service_item_hymn_ids(tmp_path):
     with get_db_connection(db_path) as conn:
         repaired_hymn_id = conn.execute("SELECT hymn_id FROM service_items WHERE service_id = ?", (s_id,)).fetchone()['hymn_id']
         assert repaired_hymn_id == real_hymn_id
+
+
+def test_init_db_adds_and_backfills_is_hymn_slot(tmp_path):
+    db_path = str(tmp_path / "test_migration.db")
+    
+    conn = sqlite3.connect(db_path)
+    cursor = conn.cursor()
+    cursor.execute("""
+        CREATE TABLE services (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            service_date TEXT, title TEXT, setting_preset TEXT
+        );
+    """)
+    cursor.execute("""
+        CREATE TABLE service_items (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            service_id INTEGER, hymn_id INTEGER, item_title TEXT,
+            slot_name TEXT, sequence_order INTEGER, file_path TEXT
+        );
+    """)
+    cursor.execute("INSERT INTO services (service_date, title) VALUES ('2026-09-01', 'Test Service')")
+    s_id = cursor.lastrowid
+    cursor.execute("INSERT INTO service_items (service_id, slot_name, item_title, sequence_order, file_path) VALUES (?, 'Opening Hymn', 'Hymn 331', 1, 'path/1')", (s_id,))
+    cursor.execute("INSERT INTO service_items (service_id, slot_name, item_title, sequence_order, file_path) VALUES (?, 'Kyrie', 'DS1 Kyrie', 2, 'path/2')", (s_id,))
+    conn.commit()
+    conn.close()
+    
+    init_db(db_path)
+    
+    with get_db_connection(db_path) as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT slot_name, is_hymn_slot FROM service_items ORDER BY sequence_order ASC")
+        rows = cursor.fetchall()
+        assert rows[0]['slot_name'] == 'Opening Hymn'
+        assert rows[0]['is_hymn_slot'] == 1
+        assert rows[1]['slot_name'] == 'Kyrie'
+        assert rows[1]['is_hymn_slot'] == 0
 
 
 

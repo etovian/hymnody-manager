@@ -62,10 +62,18 @@ def init_db(db_path=DEFAULT_DB_PATH):
                 slot_name TEXT NOT NULL,
                 sequence_order INTEGER NOT NULL,
                 file_path TEXT NOT NULL,
+                is_hymn_slot INTEGER DEFAULT 0,
                 FOREIGN KEY (service_id) REFERENCES services(id) ON DELETE CASCADE,
                 FOREIGN KEY (hymn_id) REFERENCES hymns(id)
             );
         """)
+        
+        cursor.execute("PRAGMA table_info(service_items)")
+        si_cols = [col['name'] for col in cursor.fetchall()]
+        if 'is_hymn_slot' not in si_cols:
+            cursor.execute("ALTER TABLE service_items ADD COLUMN is_hymn_slot INTEGER DEFAULT 0")
+            cursor.execute("UPDATE service_items SET is_hymn_slot = 1 WHERE slot_name LIKE '%Hymn%'")
+
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS service_templates (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,

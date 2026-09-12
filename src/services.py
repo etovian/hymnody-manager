@@ -221,11 +221,27 @@ def create_service_from_preset(title, service_date, setting_preset="DS2", liturg
         service_id = cursor.lastrowid
         
         if tmpl and tmpl.get('items'):
-            preset_slots = [(item['slot_name'], item['match_term'], item['item_title']) for item in tmpl['items']]
+            preset_slots = [
+                (
+                    item['slot_name'],
+                    item['match_term'],
+                    item['item_title'],
+                    1 if item.get('match_term') == "HYMN_SLOT" or item.get('is_hymn_slot') == 1 else 0
+                )
+                for item in tmpl['items']
+            ]
         else:
-            preset_slots = PRESETS.get(setting_preset, PRESETS["DS2"])
+            preset_slots = [
+                (
+                    slot_name,
+                    match_term,
+                    item_title,
+                    1 if match_term == "HYMN_SLOT" else 0
+                )
+                for (slot_name, match_term, item_title) in PRESETS.get(setting_preset, PRESETS["DS2"])
+            ]
             
-        for idx, (slot_name, match_term, item_title) in enumerate(preset_slots, start=1):
+        for idx, (slot_name, match_term, item_title, is_hymn_slot) in enumerate(preset_slots, start=1):
             hymn_id = None
             file_path = ""
             if match_term != "HYMN_SLOT":
@@ -236,9 +252,9 @@ def create_service_from_preset(title, service_date, setting_preset="DS2", liturg
                     item_title = matches[0]['title']
             
             cursor.execute("""
-                INSERT INTO service_items (service_id, hymn_id, item_title, slot_name, sequence_order, file_path)
-                VALUES (?, ?, ?, ?, ?, ?)
-            """, (service_id, hymn_id, item_title, slot_name, idx, file_path))
+                INSERT INTO service_items (service_id, hymn_id, item_title, slot_name, sequence_order, file_path, is_hymn_slot)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+            """, (service_id, hymn_id, item_title, slot_name, idx, file_path, is_hymn_slot))
         conn.commit()
         return service_id
 
@@ -289,16 +305,21 @@ def update_service_items(service_id, items_list, db_path="hymnody.db"):
         cursor = conn.cursor()
         cursor.execute("DELETE FROM service_items WHERE service_id = ?", (service_id,))
         for idx, item in enumerate(items_list, start=1):
+            is_hymn = item.get('is_hymn_slot')
+            if is_hymn is None:
+                slot_name = item.get('slot_name', '')
+                is_hymn = 1 if 'hymn' in slot_name.lower() or item.get('match_term') == 'HYMN_SLOT' else 0
             cursor.execute("""
-                INSERT INTO service_items (service_id, hymn_id, item_title, slot_name, sequence_order, file_path)
-                VALUES (?, ?, ?, ?, ?, ?)
+                INSERT INTO service_items (service_id, hymn_id, item_title, slot_name, sequence_order, file_path, is_hymn_slot)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
             """, (
                 service_id,
                 item.get('hymn_id'),
                 item.get('item_title', f"Item {idx}"),
                 item.get('slot_name', 'Slot'),
                 idx,
-                item.get('file_path', '')
+                item.get('file_path', ''),
+                int(is_hymn)
             ))
         conn.commit()
 
@@ -349,11 +370,12 @@ def duplicate_service(service_id, new_date=None, db_path="hymnody.db"):
         
         for item in orig.get('items', []):
             cursor.execute("""
-                INSERT INTO service_items (service_id, hymn_id, item_title, slot_name, sequence_order, file_path)
-                VALUES (?, ?, ?, ?, ?, ?)
-            """, (new_id, item.get('hymn_id'), item.get('item_title'), item.get('slot_name'), item.get('sequence_order'), item.get('file_path', '')))
+                INSERT INTO service_items (service_id, hymn_id, item_title, slot_name, sequence_order, file_path, is_hymn_slot)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+            """, (new_id, item.get('hymn_id'), item.get('item_title'), item.get('slot_name'), item.get('sequence_order'), item.get('file_path', ''), item.get('is_hymn_slot', 0)))
         conn.commit()
         return new_id
+
 
 def list_services(db_path="hymnody.db"):
     with get_db_connection(db_path) as conn:
