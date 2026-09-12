@@ -125,31 +125,38 @@
 
         <!-- TAB 2: TEMPLATE EDITOR PANEL -->
         <div id="panel-template-editor" class="flex-col hidden" style="flex: 1; min-height: 0; display: flex;">
-          <div class="template-header flex-between mb-2 flex-wrap gap-2" style="background: #0f172a; padding: 10px 12px; border-radius: 8px; border: 1px solid #334155;">
-            <div>
-              <span class="badge" style="background: #3b82f6; color: white; margin-bottom: 4px; display: inline-block;">WORKING TEMPLATE</span>
-              <h3 id="active-template-title" style="font-size: 1.1rem; font-weight: 700; color: white;">Divine Service 2</h3>
-              <p id="active-template-subtitle" class="subtitle" style="font-size: 0.75rem;">Built-in Lutheran Service Book preset</p>
-            </div>
-            <button id="btn-open-template-modal" class="btn btn-primary" onclick="openTemplateSelectorModal()">📂 Select / Change Template</button>
-          </div>
+          <form id="template-edit-form" onsubmit="event.preventDefault(); saveTemplateFromUI();" style="display: flex; flex-direction: column; flex: 1; min-height: 0; gap: 8px;">
+            <input type="hidden" id="edit-template-id">
 
-          <div style="flex: 1; overflow-y: auto; padding-right: 4px; display: flex; flex-direction: column; gap: 12px;">
-            <form id="template-edit-form" onsubmit="event.preventDefault(); saveTemplateFromUI();" style="display: flex; flex-direction: column; gap: 12px; flex: 1;">
-              <input type="hidden" id="edit-template-id">
-              <div style="display: flex; gap: 12px; flex-wrap: wrap;">
-                <div style="flex: 1; min-width: 200px;">
-                  <label style="font-weight: 600; font-size: 0.85rem;">Template Name:</label>
-                  <input type="text" id="edit-template-name" required style="width: 100%; background: #0f172a; color: white; border: 1px solid #334155; padding: 6px 10px; border-radius: 6px; font-size: 0.85rem; margin-top: 4px;">
+            <!-- Fixed Non-Scrolling Top Panel Card -->
+            <div class="template-header flex-col" style="background: #0f172a; padding: 10px 12px; border-radius: 8px; border: 1px solid #334155; display: flex; flex-direction: column; gap: 8px;">
+              <div class="flex-between flex-wrap gap-2">
+                <div>
+                  <span class="badge" style="background: #3b82f6; color: white; margin-bottom: 4px; display: inline-block;">WORKING TEMPLATE</span>
+                  <h3 id="active-template-title" style="font-size: 1.1rem; font-weight: 700; color: white;">Divine Service 2</h3>
+                  <p id="active-template-subtitle" class="subtitle" style="font-size: 0.75rem;">Built-in Lutheran Service Book preset</p>
                 </div>
-                <div style="flex: 2; min-width: 250px;">
-                  <label style="font-weight: 600; font-size: 0.85rem;">Description:</label>
-                  <input type="text" id="edit-template-desc" style="width: 100%; background: #0f172a; color: white; border: 1px solid #334155; padding: 6px 10px; border-radius: 6px; font-size: 0.85rem; margin-top: 4px;">
+                <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+                  <button type="button" id="btn-delete-template" class="btn btn-danger-text btn-sm" onclick="deleteTemplateUI()">Delete Template</button>
+                  <button type="button" id="btn-open-template-modal" class="btn btn-primary btn-sm" onclick="openTemplateSelectorModal()">📂 Select / Change Template</button>
                 </div>
               </div>
 
-              <div class="flex-between" style="margin-top: 4px; flex-wrap: wrap; gap: 8px; align-items: center;">
-                <h4 style="font-size: 0.9rem; font-weight: 700;">Template Slots & Ordinaries</h4>
+              <!-- Template Name & Description Inputs -->
+              <div style="display: flex; gap: 12px; flex-wrap: wrap;">
+                <div style="flex: 1; min-width: 180px;">
+                  <label style="font-weight: 600; font-size: 0.8rem; color: #94a3b8;">Template Name:</label>
+                  <input type="text" id="edit-template-name" required style="width: 100%; background: #1e293b; color: white; border: 1px solid #334155; padding: 5px 8px; border-radius: 6px; font-size: 0.85rem; margin-top: 2px;">
+                </div>
+                <div style="flex: 2; min-width: 220px;">
+                  <label style="font-weight: 600; font-size: 0.8rem; color: #94a3b8;">Description:</label>
+                  <input type="text" id="edit-template-desc" style="width: 100%; background: #1e293b; color: white; border: 1px solid #334155; padding: 5px 8px; border-radius: 6px; font-size: 0.85rem; margin-top: 2px;">
+                </div>
+              </div>
+
+              <!-- Draggable Elements & Save Button Toolbar -->
+              <div class="flex-between" style="flex-wrap: wrap; gap: 8px; align-items: center; border-top: 1px solid #1e293b; padding-top: 6px;">
+                <h4 style="font-size: 0.85rem; font-weight: 700; color: #e2e8f0;">Template Slots & Ordinaries</h4>
                 <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
                   <div id="drag-hymn-placeholder" class="draggable-slot-chip" draggable="true" ondragstart="onNewTemplateSlotDragStart(event, 'hymn_placeholder')" title="Drag into template list below">
                     <span class="drag-handle">⋮⋮</span> + Hymn Placeholder
@@ -160,15 +167,13 @@
                   <button type="submit" id="btn-save-template" class="btn btn-emerald btn-sm">💾 Save Template</button>
                 </div>
               </div>
-              <p class="subtitle" style="font-size: 0.75rem; color: #60a5fa;">💡 Tip: Drag hymn or liturgy tracks from the left catalog, or slot chips above, directly into any slot below.</p>
+            </div>
 
-              <div id="template-slots-editor-list" style="display: flex; flex-direction: column; gap: 8px; flex: 1; min-height: 150px; overflow-y: auto;" ondragover="onTemplateListDragOver(event)" ondrop="onTemplateListDrop(event)"></div>
+            <p class="subtitle" style="font-size: 0.75rem; color: #60a5fa; margin-left: 2px;">💡 Tip: Drag hymn or liturgy tracks from the left catalog, or slot chips above, directly into any slot below.</p>
 
-              <div class="flex-between" style="padding-top: 8px; border-top: 1px solid #334155;">
-                <button type="button" id="btn-delete-template" class="btn btn-danger-text" onclick="deleteTemplateUI()">Delete Template</button>
-              </div>
-            </form>
-          </div>
+            <!-- Scrollable Slots Container -->
+            <div id="template-slots-editor-list" style="display: flex; flex-direction: column; gap: 8px; flex: 1; min-height: 0; overflow-y: auto; padding-right: 2px;" ondragover="onTemplateListDragOver(event)" ondrop="onTemplateListDrop(event)"></div>
+          </form>
         </div>
 
       </section>

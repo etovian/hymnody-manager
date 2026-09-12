@@ -393,10 +393,17 @@ def test_draggable_template_elements_html_and_top_save_button():
     assert 'addCustomSlotUI()' not in html, "Old + Custom Slot button click handler should be replaced with draggable element"
     assert 'id="btn-save-template"' in html, "Save template button #btn-save-template must exist"
 
-    # Verify Save Template button is in the top section before template-slots-editor-list
+    # Verify Save Template button, template name, and description are in the top section before template-slots-editor-list
     save_idx = html.find('id="btn-save-template"')
     slots_idx = html.find('id="template-slots-editor-list"')
-    assert save_idx != -1 and slots_idx != -1, "Both #btn-save-template and #template-slots-editor-list must exist"
+    name_idx = html.find('id="edit-template-name"')
+    desc_idx = html.find('id="edit-template-desc"')
+    drag_hymn_idx = html.find('id="drag-hymn-placeholder"')
+
+    assert save_idx != -1 and slots_idx != -1 and name_idx != -1 and desc_idx != -1 and drag_hymn_idx != -1
+    assert name_idx < slots_idx, "#edit-template-name must be in top panel before #template-slots-editor-list"
+    assert desc_idx < slots_idx, "#edit-template-desc must be in top panel before #template-slots-editor-list"
+    assert drag_hymn_idx < slots_idx, "#drag-hymn-placeholder must be in top panel before #template-slots-editor-list"
     assert save_idx < slots_idx, "#btn-save-template should be located in top header before #template-slots-editor-list"
 
 
