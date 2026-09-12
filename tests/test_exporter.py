@@ -82,11 +82,11 @@ def test_export_service_zip(tmp_path):
     
     with zipfile.ZipFile(io.BytesIO(zip_bytes)) as zf:
         names = zf.namelist()
-        assert "20260830_DS2.m3u" in names
+        assert "00_20260830_DS2.m3u" in names
         assert "playlist.m3u" not in names
         assert any(n.endswith(".m4a") for n in names)
         
-        m3u_content = zf.read("20260830_DS2.m3u").decode("utf-8")
+        m3u_content = zf.read("00_20260830_DS2.m3u").decode("utf-8")
         assert "#EXTM3U" in m3u_content
 
 def test_export_service_zip_preserves_track_numbering_for_missing_files(tmp_path):
@@ -129,10 +129,10 @@ def test_export_service_zip_preserves_track_numbering_for_missing_files(tmp_path
         assert "01_Opening_Hymn_Test_Hymn_1.m4a" in namelist
         assert "03_Office_Hymn_Test_Hymn_3.m4a" in namelist
         assert "02_Venite_Venite_(O_Come).m4a" not in namelist
-        assert "20260901_Matins.m3u" in namelist
+        assert "00_20260901_Matins.m3u" in namelist
         assert "playlist.m3u" not in namelist
         
-        m3u_content = zf.read("20260901_Matins.m3u").decode('utf-8')
+        m3u_content = zf.read("00_20260901_Matins.m3u").decode('utf-8')
         assert "01_Opening_Hymn_Test_Hymn_1.m4a" in m3u_content
         assert "03_Office_Hymn_Test_Hymn_3.m4a" in m3u_content
 
@@ -159,8 +159,9 @@ def test_export_service_zip_playlist_filename_matches_zip_base_name(tmp_path):
     
     with zipfile.ZipFile(io.BytesIO(zip_bytes), 'r') as zf:
         namelist = zf.namelist()
-        assert "20261025_DS3_Common_Pentecost_22.m3u" in namelist
+        assert "00_20261025_DS3_Common_Pentecost_22.m3u" in namelist
         assert "playlist.m3u" not in namelist
+
 
 
 
