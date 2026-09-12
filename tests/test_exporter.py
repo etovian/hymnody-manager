@@ -162,6 +162,65 @@ def test_export_service_zip_playlist_filename_matches_zip_base_name(tmp_path):
         assert "00_20261025_DS3_Common_Pentecost_22.m3u" in namelist
         assert "playlist.m3u" not in namelist
 
+def test_export_service_zip_includes_preservice_meditation_playlist(tmp_path):
+    db_path = str(tmp_path / "test_preservice_export.db")
+    init_db(db_path)
+    
+    sample_file_1 = tmp_path / "1-01 331 - Test Hymn 1.m4a"
+    sample_file_1.write_bytes(b"hymn 1 content")
+    sample_file_2 = tmp_path / "1-02 DS1 - Kyrie.m4a"
+    sample_file_2.write_bytes(b"kyrie content")
+    sample_file_3 = tmp_path / "1-03 332 - Test Hymn 2.m4a"
+    sample_file_3.write_bytes(b"hymn 2 content")
+    
+    from src.database import get_db_connection
+    with get_db_connection(db_path) as conn:
+        cursor = conn.cursor()
+        cursor.execute("INSERT INTO services (service_date, title, setting_preset) VALUES ('2026-09-12', 'Sunday Worship', 'DS1')")
+        s_id = cursor.lastrowid
+        cursor.execute("INSERT INTO service_items (service_id, slot_name, item_title, sequence_order, file_path, is_hymn_slot) VALUES (?, 'Opening Hymn', 'Hymn 331', 1, ?, 1)", (s_id, str(sample_file_1)))
+        cursor.execute("INSERT INTO service_items (service_id, slot_name, item_title, sequence_order, file_path, is_hymn_slot) VALUES (?, 'Kyrie', 'Kyrie Ordinary', 2, ?, 0)", (s_id, str(sample_file_2)))
+        cursor.execute("INSERT INTO service_items (service_id, slot_name, item_title, sequence_order, file_path, is_hymn_slot) VALUES (?, 'Closing Hymn', 'Hymn 332', 3, ?, 1)", (s_id, str(sample_file_3)))
+        conn.commit()
+        
+    zip_bytes, filename = export_service_zip(s_id, db_path=db_path)
+    assert zip_bytes is not None
+    
+    with zipfile.ZipFile(io.BytesIO(zip_bytes), 'r') as zf:
+        namelist = zf.namelist()
+        assert "00_20260912_DS1.m3u" in namelist
+        assert "00_Preservice_Meditation.m3u" in namelist
+        
+        preservice_content = zf.read("00_Preservice_Meditation.m3u").decode("utf-8")
+        assert "01_Opening_Hymn_Hymn_331.m4a" in preservice_content
+        assert "03_Closing_Hymn_Hymn_332.m4a" in preservice_content
+        assert "02_Kyrie_Kyrie_Ordinary.m4a" not in preservice_content
+
+def test_preservice_playlist_excludes_hymn_in_ordinary_slot(tmp_path):
+    db_path = str(tmp_path / "test_ordinary_hymn.db")
+    init_db(db_path)
+    
+    hymn_933_file = tmp_path / "hymn_933.m4a"
+    hymn_933_file.write_bytes(b"hymn 933 content")
+    
+    from src.database import get_db_connection
+    with get_db_connection(db_path) as conn:
+        cursor = conn.cursor()
+        cursor.execute("INSERT INTO services (service_date, title, setting_preset) VALUES ('2026-09-12', 'Vespers', 'Vespers')")
+        s_id = cursor.lastrowid
+        # Hymn 933 placed into Magnificat ordinary slot (is_hymn_slot = 0)
+        cursor.execute("INSERT INTO service_items (service_id, slot_name, item_title, sequence_order, file_path, is_hymn_slot) VALUES (?, 'Magnificat', 'Hymn 933 - My Soul Rejoices', 1, ?, 0)", (s_id, str(hymn_933_file)))
+        conn.commit()
+        
+    zip_bytes, filename = export_service_zip(s_id, db_path=db_path)
+    with zipfile.ZipFile(io.BytesIO(zip_bytes), 'r') as zf:
+        namelist = zf.namelist()
+        assert "00_20260912_Vespers.m3u" in namelist
+        if "00_Preservice_Meditation.m3u" in namelist:
+            preservice_content = zf.read("00_Preservice_Meditation.m3u").decode("utf-8")
+            assert "01_Magnificat_Hymn_933_-_My_Soul_Rejoices.m4a" not in preservice_content
+
+
 
 
 

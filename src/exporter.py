@@ -35,7 +35,8 @@ def export_service_zip(service_id: int, db_path: str = "hymnody.db") -> tuple[by
         
     filename = generate_export_filename(service)
     buf = io.BytesIO()
-    m3u_lines = ["#EXTM3U\n"]
+    main_m3u_lines = ["#EXTM3U\n"]
+    preservice_m3u_lines = ["#EXTM3U\n"]
     
     with zipfile.ZipFile(buf, 'w', zipfile.ZIP_DEFLATED) as zf:
         for idx, item in enumerate(service.get('items', []), start=1):
@@ -47,13 +48,21 @@ def export_service_zip(service_id: int, db_path: str = "hymnody.db") -> tuple[by
             clean_title = re.sub(r'[\/:*?"<>|]', '_', f"{slot}_{raw_title}").replace(' ', '_')
             track_filename = f"{seq_num:02d}_{clean_title}.m4a"
             
+            is_hymn = item.get('is_hymn_slot') == 1 or (item.get('is_hymn_slot') is None and 'hymn' in slot.lower())
+            
             if file_path and os.path.exists(file_path):
                 zf.write(file_path, arcname=track_filename)
-                m3u_lines.append(f"#EXTINF:-1,{raw_title}\n{track_filename}\n")
+                entry = f"#EXTINF:-1,{raw_title}\n{track_filename}\n"
+                main_m3u_lines.append(entry)
+                if is_hymn:
+                    preservice_m3u_lines.append(entry)
                 
         base_name = filename[:-4] if filename.endswith('.zip') else filename
         playlist_filename = f"00_{base_name}.m3u"
-        zf.writestr(playlist_filename, "".join(m3u_lines))
+        zf.writestr(playlist_filename, "".join(main_m3u_lines))
+        if len(preservice_m3u_lines) > 1:
+            zf.writestr("00_Preservice_Meditation.m3u", "".join(preservice_m3u_lines))
         
     return buf.getvalue(), filename
+
 
