@@ -30,4 +30,12 @@ def test_toggle_mobile_ui_mode_function_present():
     assert "currentPlaybackMode = PLAYBACK_MODE.REPEAT_ALL" in content
     assert "function updateMobileHeaderModeButton()" in content
 
+def test_ended_event_listener_uses_playback_mode():
+    with open("src/static/app.js", "r", encoding="utf-8") as f:
+        content = f.read()
+    assert "currentPlaybackMode === PLAYBACK_MODE.SINGLE" in content
+    assert "currentPlaybackMode === PLAYBACK_MODE.REPEAT_ALL" in content
+
+
+
 

@@ -1887,10 +1887,37 @@ function setupAudioListeners() {
   });
 
   audioPlayer.addEventListener('ended', () => {
-    isPlaying = false;
-    audioPlayer.currentTime = 0;
-    updatePlayButtonUI();
-    renderMobilePlaylist();
+    if (currentPlaybackMode === PLAYBACK_MODE.SINGLE) {
+      isPlaying = false;
+      audioPlayer.currentTime = 0;
+      updatePlayButtonUI();
+      renderMobilePlaylist();
+    } else if (currentPlaybackMode === PLAYBACK_MODE.REPEAT_ALL) {
+      const activeItems = getActiveDisplayItems();
+      if (activeItems.length > 0) {
+        let currentPos = activeItems.findIndex(it => {
+          if (mobileService && mobileService.items) {
+            return mobileService.items.indexOf(it) === activeTrackIndex;
+          }
+          return false;
+        });
+        if (currentPos === -1) currentPos = 0;
+        const nextPos = (currentPos + 1) % activeItems.length;
+        const nextItem = activeItems[nextPos];
+        const nextIndex = (mobileService && mobileService.items) ? mobileService.items.indexOf(nextItem) : 0;
+        playServiceTrack(nextIndex);
+      } else {
+        isPlaying = false;
+        audioPlayer.currentTime = 0;
+        updatePlayButtonUI();
+        renderMobilePlaylist();
+      }
+    } else {
+      isPlaying = false;
+      audioPlayer.currentTime = 0;
+      updatePlayButtonUI();
+      renderMobilePlaylist();
+    }
   });
 }
 
