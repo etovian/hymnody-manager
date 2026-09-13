@@ -16,6 +16,7 @@ let allSavedServices = [];
 let explorerFilterMode = 'all';
 let availableTemplates = [];
 let selectedTemplateForEdit = null;
+let activeCatalogTab = 'hymn';
 const PLAYBACK_MODE = {
   SINGLE: 'SINGLE',
   CONTINUOUS: 'CONTINUOUS',
