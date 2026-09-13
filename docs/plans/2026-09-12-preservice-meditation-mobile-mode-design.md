@@ -20,7 +20,7 @@ While mid-service playback requires stopping after each track (`SINGLE` playback
 
 1. **`PLAYBACK_MODE`**:
    - `SINGLE`: Plays 1 track and stops on completion (Default for Mid-Service).
-   - `CONTINUOUS`: Auto-advances sequentially through active list without looping.
+   - `CONTINUOUS`: Auto-advances sequentially through active list without looping (reserved/extensible enum value; unused in current Preservice vs Service modes).
    - `REPEAT_ALL`: Auto-advances through active list and loops back to track 1 upon reaching the end (Default for Preservice).
 
 2. **`MOBILE_UI_MODE`**:
