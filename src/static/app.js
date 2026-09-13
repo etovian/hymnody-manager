@@ -1563,21 +1563,56 @@ function getDisplaySlot(item, displayTitle) {
   return slotName !== displayTitle ? slotName : '';
 }
 
+function toggleMobileUiMode() {
+  if (currentMobileUiMode === MOBILE_UI_MODE.SERVICE) {
+    currentMobileUiMode = MOBILE_UI_MODE.PRESERVICE;
+    currentPlaybackMode = PLAYBACK_MODE.REPEAT_ALL;
+    showToast("Preservice Meditation Mode (Hymns Only • Looping)", "info", "Preservice Mode");
+  } else {
+    currentMobileUiMode = MOBILE_UI_MODE.SERVICE;
+    currentPlaybackMode = PLAYBACK_MODE.SINGLE;
+    showToast("Full Service Mode (Single Track Stop)", "info", "Service Mode");
+  }
+
+  updateMobileHeaderModeButton();
+  renderMobileServiceInfo();
+  renderMobilePlaylist();
+}
+
+function updateMobileHeaderModeButton() {
+  const btn = document.getElementById('btn-mobile-mode-toggle');
+  if (!btn) return;
+
+  if (currentMobileUiMode === MOBILE_UI_MODE.PRESERVICE) {
+    btn.textContent = '🎵 Preservice';
+    btn.className = 'btn btn-preservice-pill btn-preservice-active';
+  } else {
+    btn.textContent = '📜 Full Service';
+    btn.className = 'btn btn-emerald btn-preservice-pill';
+  }
+}
+
 function renderMobilePlaylist(service = mobileService) {
   const mobilePlaylist = document.getElementById('mobile-playlist-container');
   if (!mobilePlaylist) return;
   mobilePlaylist.innerHTML = '';
 
-  const items = service ? (service.items || []) : [];
+  const items = getActiveDisplayItems();
   if (items.length === 0) {
-    mobilePlaylist.innerHTML = '<div style="color: #94a3b8; font-size: 0.9rem; padding: 1rem; text-align: center;">No service selected or service has no items.</div>';
+    const msg = (currentMobileUiMode === MOBILE_UI_MODE.PRESERVICE)
+      ? 'No hymns with audio files available in this service plan.'
+      : 'No service selected or service has no items.';
+    mobilePlaylist.innerHTML = `<div style="color: #94a3b8; font-size: 0.9rem; padding: 1rem; text-align: center;">${msg}</div>`;
     return;
   }
 
-  items.forEach((item, index) => {
+  items.forEach((item, displayIdx) => {
+    const originalIndex = (mobileService && mobileService.items) ? mobileService.items.indexOf(item) : displayIdx;
+    const indexToUse = originalIndex !== -1 ? originalIndex : displayIdx;
+
     const hasAudio = Boolean(item.file_path && item.file_path.trim());
-    const isActive = (index === activeTrackIndex);
-    const displayTitle = item.item_title || item.title || item.slot_name || `Track ${index + 1}`;
+    const isActive = (indexToUse === activeTrackIndex);
+    const displayTitle = item.item_title || item.title || item.slot_name || `Track ${displayIdx + 1}`;
     const displaySlot = getDisplaySlot(item, displayTitle);
 
     const card = document.createElement('div');
@@ -1592,9 +1627,9 @@ function renderMobilePlaylist(service = mobileService) {
       const totalFormatted = formatTime(totalSec);
 
       card.innerHTML = `
-        <div class="mobile-track-header" onclick="onMobileTrackClicked(${index})">
+        <div class="mobile-track-header" onclick="onMobileTrackClicked(${indexToUse})">
           <div class="mobile-track-info">
-            <span class="mobile-track-num">${String(index + 1).padStart(2, '0')}</span>
+            <span class="mobile-track-num">${String(displayIdx + 1).padStart(2, '0')}</span>
             <div>
               <div class="mobile-track-title">${escapeHtml(displayTitle)}</div>
               ${displaySlot ? `<div class="mobile-track-slot">${escapeHtml(displaySlot)}</div>` : ''}
@@ -1616,14 +1651,14 @@ function renderMobilePlaylist(service = mobileService) {
       `;
     } else {
       card.className = 'mobile-track-card';
-      card.setAttribute('onclick', `onMobileTrackClicked(${index})`);
+      card.setAttribute('onclick', `onMobileTrackClicked(${indexToUse})`);
 
       const badgeInfo = getTrackCategoryBadge(item, hasAudio);
 
       card.innerHTML = `
         <div class="mobile-track-header">
           <div class="mobile-track-info">
-            <span class="mobile-track-num">${String(index + 1).padStart(2, '0')}</span>
+            <span class="mobile-track-num">${String(displayIdx + 1).padStart(2, '0')}</span>
             <div>
               <div class="mobile-track-title">${escapeHtml(displayTitle)}</div>
               ${displaySlot ? `<div class="mobile-track-slot">${escapeHtml(displaySlot)}</div>` : ''}
@@ -1660,11 +1695,12 @@ async function onMobileServiceSelectChanged(serviceId) {
 
 function renderMobileServiceInfo() {
   if (!mobileService) return;
-  const subtitle = `${mobileService.service_date || ''}${mobileService.liturgical_day ? ' • ' + mobileService.liturgical_day : ''} | Setting: ${mobileService.setting_preset || ''}`;
+  const baseSubtitle = `${mobileService.service_date || ''}${mobileService.liturgical_day ? ' • ' + mobileService.liturgical_day : ''} | Setting: ${mobileService.setting_preset || ''}`;
+  const modeBadge = (currentMobileUiMode === MOBILE_UI_MODE.PRESERVICE) ? ' • Preservice Hymns (Looping)' : ' • Full Service';
   const titleEl = document.getElementById('mobile-service-title');
   const subEl = document.getElementById('mobile-service-subtitle');
   if (titleEl) titleEl.textContent = mobileService.title || 'Sunday Service';
-  if (subEl) subEl.textContent = subtitle;
+  if (subEl) subEl.textContent = baseSubtitle + modeBadge;
 }
 
 function playServiceTrack(index) {

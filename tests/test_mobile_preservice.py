@@ -22,3 +22,12 @@ def test_mobile_header_toggle_button_present():
     assert '.mobile-header-controls' in css
     assert '.btn-preservice-pill' in css
 
+def test_toggle_mobile_ui_mode_function_present():
+    with open("src/static/app.js", "r", encoding="utf-8") as f:
+        content = f.read()
+    assert "function toggleMobileUiMode()" in content
+    assert "currentMobileUiMode = MOBILE_UI_MODE.PRESERVICE" in content
+    assert "currentPlaybackMode = PLAYBACK_MODE.REPEAT_ALL" in content
+    assert "function updateMobileHeaderModeButton()" in content
+
+
