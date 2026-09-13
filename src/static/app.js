@@ -16,7 +16,32 @@ let allSavedServices = [];
 let explorerFilterMode = 'all';
 let availableTemplates = [];
 let selectedTemplateForEdit = null;
-let activeCatalogTab = 'hymn';
+const PLAYBACK_MODE = {
+  SINGLE: 'SINGLE',
+  CONTINUOUS: 'CONTINUOUS',
+  REPEAT_ALL: 'REPEAT_ALL'
+};
+
+const MOBILE_UI_MODE = {
+  SERVICE: 'SERVICE',
+  PRESERVICE: 'PRESERVICE'
+};
+
+let currentPlaybackMode = PLAYBACK_MODE.SINGLE;
+let currentMobileUiMode = MOBILE_UI_MODE.SERVICE;
+
+function getActiveDisplayItems() {
+  const items = mobileService ? (mobileService.items || []) : [];
+  if (currentMobileUiMode === MOBILE_UI_MODE.PRESERVICE) {
+    return items.filter(item => {
+      const hasAudio = Boolean(item.file_path && item.file_path.trim());
+      const badge = getTrackCategoryBadge(item, hasAudio);
+      return badge.text === 'Hymn' && hasAudio;
+    });
+  }
+  return items;
+}
+
 const HYMN_SEASONS = [
   { label: 'All Hymns', value: '' },
   { label: 'Advent', value: 'Advent' },
