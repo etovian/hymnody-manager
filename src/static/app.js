@@ -1919,7 +1919,7 @@ function showToast(message, type = 'info', title = null, duration = null) {
     success: 4000,
     info: 4000,
     warning: 8000,
-    error: 0
+    error: 10000
   };
 
   const autoDuration = duration !== null ? duration : (defaultDurations[type] ?? 4000);
@@ -1974,4 +1974,168 @@ function removeToast(toast) {
     }
   }, 200);
 }
+
+// Plan Export / Import & Modal Handlers for Dual-Node Operation
+let pendingImportPlanData = null;
+
+function toggleExportDropdown(event) {
+  if (event) event.stopPropagation();
+  const menu = document.getElementById('export-dropdown-menu');
+  if (menu) {
+    menu.classList.toggle('hidden');
+  }
+}
+
+document.addEventListener('click', (event) => {
+  const dropdown = document.getElementById('export-dropdown-menu');
+  const btn = document.getElementById('btn-export-dropdown');
+  if (dropdown && !dropdown.classList.contains('hidden')) {
+    if (!dropdown.contains(event.target) && event.target !== btn) {
+      dropdown.classList.add('hidden');
+    }
+  }
+});
+
+async function exportServicePlanJSON() {
+  const menu = document.getElementById('export-dropdown-menu');
+  if (menu) menu.classList.add('hidden');
+  
+  try {
+    if (!currentService) return;
+    if (!currentService.id || isServiceDirty) {
+      await saveActiveServiceUI();
+    }
+    if (!currentService || !currentService.id) {
+      showToast("Please save the service plan before exporting", "warning", "Save Required");
+      return;
+    }
+
+    showToast("Generating service plan file...", "info", "Export Started");
+
+    const res = await fetch(`/api/services/${currentService.id}/export-plan`);
+    if (!res.ok) {
+      throw new Error(`Export server error (${res.status})`);
+    }
+
+    const blob = await res.blob();
+    const downloadUrl = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = downloadUrl;
+    const contentDisposition = res.headers.get('Content-Disposition');
+    let filename = `service_plan_${currentService.id}.hymnody`;
+    if (contentDisposition && contentDisposition.includes('filename=')) {
+      filename = contentDisposition.split('filename=')[1].replace(/["']/g, '');
+    }
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    window.URL.revokeObjectURL(downloadUrl);
+
+    showToast("Service plan file downloaded successfully", "success", "Export Complete");
+  } catch (err) {
+    console.error("Error exporting service plan file:", err);
+    showToast(err.message || "Failed to export service plan file", "error", "Export Failed");
+  }
+}
+
+function triggerImportPlanSelect() {
+  const input = document.getElementById('plan-file-input');
+  if (input) {
+    input.value = '';
+    input.click();
+  }
+}
+
+function handlePlanFileSelected(event) {
+  const file = event.target.files && event.target.files[0];
+  if (file) {
+    readAndPreviewPlanFile(file);
+  }
+}
+
+function readAndPreviewPlanFile(file) {
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    try {
+      const planData = JSON.parse(e.target.result);
+      const srv = (planData && planData.service && typeof planData.service === 'object') ? planData.service : planData;
+      if (!srv || typeof srv !== 'object') {
+        throw new Error("Invalid service plan file format");
+      }
+      executeImportPlanPayload(planData);
+    } catch (err) {
+      console.error("Plan file reading error:", err);
+      showToast(err.message || "Invalid .hymnody plan file format", "error", "Import Error");
+    }
+  };
+  reader.onerror = (err) => {
+    console.error("FileReader error:", err);
+    showToast("Failed to read selected file", "error", "File Error");
+  };
+  reader.readAsText(file);
+}
+
+async function executeImportPlanPayload(planData) {
+  try {
+    const srv = (planData && planData.service && typeof planData.service === 'object') ? planData.service : planData;
+    const titleStr = srv.title || srv.service_title || srv.name || 'Imported Service';
+
+    showToast(`Importing service plan "${titleStr}"...`, "info", "Import Started");
+
+    const res = await fetch('/api/services/import-plan', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(planData)
+    });
+
+    if (!res.ok) {
+      const errData = await res.json().catch(() => ({}));
+      throw new Error(errData.detail || "Failed to import plan");
+    }
+
+    const result = await res.json();
+    closeImportPlanModal();
+
+    showToast(`Service plan "${result.title}" imported successfully (${result.matched_count} audio tracks matched)`, "success", "Import Complete");
+
+    if (result.service_id) {
+      await loadService(result.service_id);
+      await fetchServicesExplorerList();
+    }
+  } catch (err) {
+    console.error("Error importing service plan:", err);
+    showToast(err.message || "Failed to import service plan", "error", "Import Failed");
+  }
+}
+
+function openImportPlanModal(planData) {
+  executeImportPlanPayload(planData);
+}
+
+function closeImportPlanModal() {
+  pendingImportPlanData = null;
+  const modal = document.getElementById('import-plan-modal');
+  if (modal) modal.classList.add('hidden');
+}
+
+function confirmImportPlan() {
+  if (pendingImportPlanData) {
+    executeImportPlanPayload(pendingImportPlanData);
+  }
+}
+
+window.addEventListener('dragover', (e) => e.preventDefault());
+window.addEventListener('drop', (e) => {
+  e.preventDefault();
+  if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+    const file = e.dataTransfer.files[0];
+    if (file.name.endsWith('.hymnody') || file.name.endsWith('.json')) {
+      readAndPreviewPlanFile(file);
+    }
+  }
+});
+
+
+
 

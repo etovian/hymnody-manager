@@ -1,3 +1,4 @@
+import json
 import os
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, HTTPException, Request, Response, Body
@@ -10,9 +11,10 @@ from src.services import (
     create_service_from_preset, get_service_details, update_service_items,
     list_services, validate_service_rubric, update_service_metadata,
     delete_service, duplicate_service, list_templates, get_template_by_id,
-    save_template, delete_template, get_hymn_usage_analytics
+    save_template, delete_template, get_hymn_usage_analytics, import_service_plan_json
 )
-from src.exporter import export_service_zip
+from src.exporter import export_service_zip, export_service_plan_json, generate_export_filename
+
 
 def get_db_path():
     return os.environ.get("HYMNODY_DB_PATH", "hymnody.db")
@@ -212,6 +214,31 @@ def api_export_service_zip(service_id: int):
         media_type="application/zip",
         headers={"Content-Disposition": f'attachment; filename="{filename}"'}
     )
+
+@app.get("/api/services/{service_id}/export-plan")
+def api_export_service_plan(service_id: int):
+    db_path = get_db_path()
+    plan_dict = export_service_plan_json(service_id, db_path=db_path)
+    if not plan_dict:
+        raise HTTPException(status_code=404, detail="Service plan not found")
+        
+    service_data = plan_dict.get("service", {})
+    filename = generate_export_filename(service_data).replace('.zip', '.hymnody')
+    return Response(
+        content=json.dumps(plan_dict, indent=2),
+        media_type="application/json",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'}
+    )
+
+@app.post("/api/services/import-plan")
+def api_import_service_plan(plan_data: dict = Body(...)):
+    db_path = get_db_path()
+    try:
+        result = import_service_plan_json(plan_data, db_path=db_path)
+        return result
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
 
 @app.get("/api/analytics/hymns")
 def api_get_hymn_analytics():

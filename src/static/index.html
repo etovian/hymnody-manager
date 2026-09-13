@@ -64,33 +64,43 @@
 
         <!-- TAB 1: SERVICE PLANNER PANEL -->
         <div id="panel-service-planner" class="flex-col" style="flex: 1; min-height: 0; display: flex;">
-          <div class="service-header">
-            <div class="flex-between mb-2 flex-wrap gap-2">
-              <div>
-                <div class="flex-items-center gap-2" style="flex-wrap: wrap;">
-                  <h2 id="service-title-display" style="font-size: 1.15rem; font-weight: 700; display: inline;">Service Plan: Loading...</h2>
-                  
-                  <!-- Rubric Conformance Status Badge & Popover -->
-                  <div class="rubric-status-wrapper" style="position: relative; display: inline-block; margin-left: 8px;">
-                    <span id="rubric-badge" class="rubric-badge conformant" onclick="toggleRubricPopover()" style="cursor: pointer;">✓ Standard Rubric</span>
-                    <div id="rubric-popover" class="rubric-popover hidden">
-                      <h4 style="font-size: 0.85rem; font-weight: 700; margin-bottom: 6px;">Rubric Conformance Details</h4>
-                      <ul id="rubric-issues-list" style="font-size: 0.75rem; color: #f87171; margin-left: 16px; margin-bottom: 8px;"></ul>
-                      <button class="btn btn-primary btn-sm" onclick="restoreOfficialPreset()" style="width: 100%;">🔄 Restore Template</button>
-                    </div>
-                  </div>
-
+          <div class="service-header" style="margin-bottom: 12px;">
+            <!-- ROW 1: Title & Rubric Badge -->
+            <div class="service-title-row mb-1" style="display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; width: 100%;">
+              <h2 id="service-title-display" style="font-size: 1.15rem; font-weight: 700; color: #f8fafc; margin: 0; display: inline;">Service Plan: Loading...</h2>
+              
+              <!-- Rubric Conformance Status Badge & Popover -->
+              <div class="rubric-status-wrapper" style="position: relative; display: inline-block; margin-left: auto;">
+                <span id="rubric-badge" class="rubric-badge conformant" onclick="toggleRubricPopover()" style="cursor: pointer;">✓ Standard Rubric</span>
+                <div id="rubric-popover" class="rubric-popover hidden" style="right: 0; left: auto;">
+                  <h4 style="font-size: 0.85rem; font-weight: 700; margin-bottom: 6px;">Rubric Conformance Details</h4>
+                  <ul id="rubric-issues-list" style="font-size: 0.75rem; color: #f87171; margin-left: 16px; margin-bottom: 8px;"></ul>
+                  <button class="btn btn-primary btn-sm" onclick="restoreOfficialPreset()" style="width: 100%;">🔄 Restore Template</button>
                 </div>
-                <p id="service-subtitle-display" class="subtitle">Date: -- | Setting: --</p>
-              </div>
-
-              <div class="btn-group">
-                <button class="btn btn-emerald" id="btn-save-service" onclick="saveActiveServiceUI()">💾 Save Service</button>
-                <button class="btn btn-primary" onclick="openServicesExplorer()">📂 Services Explorer</button>
-                <button class="btn btn-emerald" onclick="exportMobileZip()">📦 Export Mobile Zip</button>
-                <button class="btn btn-primary" onclick="createNewService()">➕ New Service</button>
               </div>
             </div>
+
+            <!-- Subtitle -->
+            <p id="service-subtitle-display" class="subtitle mb-2" style="font-size: 0.8rem; color: #94a3b8;">Date: -- | Setting: --</p>
+
+            <!-- ROW 2: Dedicated Action Buttons Row with Top Padding -->
+            <div class="btn-group mb-2" style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap; width: 100%; margin-top: 10px; padding-top: 4px;">
+              <button class="btn btn-emerald" id="btn-save-service" onclick="saveActiveServiceUI()">💾 Save Service</button>
+              <button class="btn btn-primary" onclick="openServicesExplorer()">📂 Explorer</button>
+              <button class="btn btn-primary" onclick="triggerImportPlanSelect()">📥 Import</button>
+              <div class="dropdown-wrapper" style="position: relative; display: inline-block;">
+                <button class="btn btn-emerald" id="btn-export-dropdown" onclick="toggleExportDropdown(event)">📦 Export ▾</button>
+                <div id="export-dropdown-menu" class="dropdown-menu hidden" style="position: absolute; right: 0; top: 100%; margin-top: 4px; background: #1e293b; border: 1px solid #334155; border-radius: 6px; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.5); z-index: 100; min-width: 210px; display: flex; flex-direction: column; overflow: hidden;">
+                  <button class="dropdown-item" onclick="exportMobileZip()" style="padding: 10px 14px; text-align: left; background: none; border: none; color: #f8fafc; cursor: pointer; font-size: 0.85rem; font-weight: 600; display: flex; align-items: center; gap: 8px;">📦 Mobile Audio Package (.zip)</button>
+                  <button class="dropdown-item" onclick="exportServicePlanJSON()" style="padding: 10px 14px; text-align: left; background: none; border: none; color: #f8fafc; cursor: pointer; font-size: 0.85rem; font-weight: 600; display: flex; align-items: center; gap: 8px;">📄 Service Plan File (.hymnody)</button>
+                </div>
+              </div>
+              <button class="btn btn-primary" onclick="createNewService()">➕ New</button>
+            </div>
+            <input type="file" id="plan-file-input" accept=".hymnody,.json" style="display: none;" onchange="handlePlanFileSelected(event)">
+
+
+
 
             <div class="preset-selector flex-between" style="flex-wrap: wrap; gap: 12px;">
               <div style="display: flex; align-items: center; gap: 8px;">
@@ -238,6 +248,41 @@
         </div>
       </div>
     </div>
+
+    <!-- IMPORT PLAN CONFIRMATION MODAL -->
+    <div id="import-plan-modal" class="modal-backdrop hidden">
+      <div class="modal-card" style="max-width: 550px; width: 90%;">
+        <div class="modal-header flex-between">
+          <h3 style="font-size: 1.15rem; font-weight: 700;">📥 Import Worship Service Plan</h3>
+          <button class="btn-close" onclick="closeImportPlanModal()">✕</button>
+        </div>
+        <div class="modal-body" style="padding: 16px;">
+          <h4 id="import-modal-title" style="font-size: 1.05rem; font-weight: 700; color: #f8fafc; margin-bottom: 4px;">--</h4>
+          <p id="import-modal-meta" class="subtitle" style="margin-bottom: 16px; font-size: 0.85rem;">Date: -- | Setting: --</p>
+          
+          <div class="import-summary-box" style="background: #0f172a; border: 1px solid #334155; border-radius: 8px; padding: 12px; margin-bottom: 16px;">
+            <div style="display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 0.85rem;">
+              <span style="color: #94a3b8;">Total Service Items:</span>
+              <strong id="import-modal-total-items" style="color: #f8fafc;">0</strong>
+            </div>
+            <div style="display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 0.85rem;">
+              <span style="color: #94a3b8;">Audio Tracks Verified:</span>
+              <span id="import-modal-matched-badge" class="badge" style="background: #059669; color: white;">0 Matched</span>
+            </div>
+            <div id="import-modal-missing-row" style="display: flex; justify-content: space-between; font-size: 0.85rem;">
+              <span style="color: #94a3b8;">Missing Audio Alert:</span>
+              <span id="import-modal-missing-badge" class="badge" style="background: #dc2626; color: white;">0 Missing</span>
+            </div>
+          </div>
+
+          <div style="display: flex; justify-content: flex-end; gap: 10px;">
+            <button class="btn btn-secondary" onclick="closeImportPlanModal()">Cancel</button>
+            <button id="btn-confirm-import" class="btn btn-emerald" onclick="confirmImportPlan()">Confirm Import</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
 
 
     <!-- PERSISTENT AUDIO PLAYER BAR -->

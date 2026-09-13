@@ -413,6 +413,102 @@ def test_service_date_sorting_helper(tmp_path):
     assert dates == ["2026-12-25", "2026-06-15", "2026-01-01"]
 
 
+def test_import_service_plan_json(tmp_path):
+    db_path = str(tmp_path / "test_import_json.db")
+    init_db(db_path)
+    
+    sample_file = str(tmp_path / "hymn_331.m4a")
+    with open(sample_file, "wb") as f:
+        f.write(b"dummy audio")
+        
+    save_hymns([{
+        'hymn_number': 331,
+        'title': 'The advent of our King',
+        'disc_number': 1,
+        'track_number': 5,
+        'album': 'The Concordia Organist',
+        'artist': 'CPH',
+        'year': 2009,
+        'file_path': sample_file,
+        'liturgical_season': 'Advent',
+        'tune': 'ST. THOMAS'
+    }], db_path)
+    
+    plan_data = {
+        "version": "1.0",
+        "exported_at": "2026-09-12T18:30:00Z",
+        "service": {
+            "title": "Second Sunday in Advent",
+            "setting_preset": "DS1",
+            "service_date": "2026-12-06",
+            "liturgical_day": "Advent 2",
+            "notes": "Organist test",
+            "items": [
+                {
+                    "slot_name": "Invocation Hymn",
+                    "item_title": "The advent of our King",
+                    "sequence_order": 1,
+                    "is_hymn_slot": 1,
+                    "hymn_number": 331,
+                    "disc_number": 1,
+                    "track_number": 5
+                }
+            ]
+        }
+    }
+    
+    from src.services import import_service_plan_json
+    result = import_service_plan_json(plan_data, db_path=db_path)
+    assert result["status"] == "success"
+    assert result["matched_count"] == 1
+    assert result["missing_count"] == 0
+
+def test_import_service_plan_json_flat_format_and_string_types(tmp_path):
+    db_path = str(tmp_path / "test_import_flat_json.db")
+    init_db(db_path)
+    
+    sample_file = str(tmp_path / "hymn_331.m4a")
+    with open(sample_file, "wb") as f:
+        f.write(b"dummy audio")
+        
+    save_hymns([{
+        'hymn_number': 331,
+        'title': 'The Advent of Our King',
+        'disc_number': 1,
+        'track_number': 5,
+        'album': 'The Concordia Organist',
+        'artist': 'CPH',
+        'year': 2009,
+        'file_path': sample_file,
+        'liturgical_season': 'Advent'
+    }], db_path)
+    
+    # Flat format without 'service' key, with string-typed numbers and alternate key names (e.g. 'date')
+    flat_plan_data = {
+        "title": "Edited Advent Service",
+        "setting": "DS1",
+        "date": "2026-12-13",
+        "items": [
+            {
+                "slot_name": "Opening Hymn",
+                "item_title": "the advent of our king",
+                "disc_number": "1",
+                "track_number": "5",
+                "hymn_number": "331"
+            }
+        ]
+    }
+    
+    from src.services import import_service_plan_json
+    result = import_service_plan_json(flat_plan_data, db_path=db_path)
+    assert result["status"] == "success"
+    assert result["title"] == "Edited Advent Service"
+    assert result["matched_count"] == 1
+    assert result["missing_count"] == 0
+
+
+
+
 
 
 

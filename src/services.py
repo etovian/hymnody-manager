@@ -1,4 +1,8 @@
+import os
+import datetime
+import re
 from src.database import get_db_connection, search_hymns
+
 
 PRESETS = {
     "DS1": [
@@ -433,4 +437,116 @@ def get_hymn_usage_analytics(db_path="hymnody.db"):
             ORDER BY usage_count DESC, last_used_date DESC
         """)
         return [dict(r) for r in cursor.fetchall()]
+
+def import_service_plan_json(plan_data: dict, db_path: str = "hymnody.db") -> dict:
+    if not isinstance(plan_data, dict):
+        raise ValueError("Invalid service plan data format")
+        
+    if "service" in plan_data and isinstance(plan_data["service"], dict):
+        srv_data = plan_data["service"]
+    else:
+        srv_data = plan_data
+        
+    title = srv_data.get("title") or srv_data.get("service_title") or srv_data.get("name") or "Imported Service"
+    date_str = srv_data.get("service_date") or srv_data.get("date") or datetime.date.today().isoformat()
+    preset = srv_data.get("setting_preset") or srv_data.get("setting") or srv_data.get("preset") or ""
+    lit_day = srv_data.get("liturgical_day") or srv_data.get("liturgical_day_name") or ""
+    notes = srv_data.get("notes") or ""
+    
+    with get_db_connection(db_path) as conn:
+        cursor = conn.cursor()
+        existing = cursor.execute("SELECT id FROM services WHERE title = ? AND service_date = ?", (title, date_str)).fetchone()
+        if existing:
+            title = f"{title} (Imported)"
+            
+        cursor.execute("""
+            INSERT INTO services (title, service_date, setting_preset, liturgical_day, notes)
+            VALUES (?, ?, ?, ?, ?)
+        """, (title, date_str, preset, lit_day, notes))
+        new_service_id = cursor.lastrowid
+        conn.commit()
+        
+    raw_items = srv_data.get("items") or srv_data.get("service_items") or []
+    matched_count = 0
+    missing_count = 0
+    
+    for idx, item in enumerate(raw_items, start=1):
+        disc_raw = item.get("disc_number") or item.get("disc")
+        track_raw = item.get("track_number") or item.get("track")
+        hymn_raw = item.get("hymn_number") or item.get("hymn_no") or item.get("hymn")
+        item_title = item.get("item_title") or item.get("title") or ""
+        slot_name = item.get("slot_name") or item.get("slot") or f"Slot_{idx}"
+        seq = item.get("sequence_order") or item.get("sequence") or idx
+        is_hymn = item.get("is_hymn_slot")
+        
+        disc = int(disc_raw) if disc_raw is not None and str(disc_raw).isdigit() else None
+        track = int(track_raw) if track_raw is not None and str(track_raw).isdigit() else None
+        hymn_num = int(hymn_raw) if hymn_raw is not None and str(hymn_raw).isdigit() else None
+        
+        if hymn_num is None:
+            match = re.search(r'\b(?:LSB\s*)?(\d{1,3})\b', item_title) or re.search(r'\b(?:LSB\s*)?(\d{1,3})\b', slot_name)
+            if match:
+                candidate = int(match.group(1))
+                with get_db_connection(db_path) as conn:
+                    row = conn.cursor().execute("SELECT id FROM hymns WHERE hymn_number = ? LIMIT 1", (candidate,)).fetchone()
+                    if row:
+                        hymn_num = candidate
+
+        matched_hymn = None
+        with get_db_connection(db_path) as conn:
+            cursor = conn.cursor()
+            if disc is not None and track is not None:
+                row = cursor.execute(
+                    "SELECT id, file_path FROM hymns WHERE disc_number = ? AND track_number = ?",
+                    (disc, track)
+                ).fetchone()
+                if row:
+                    matched_hymn = dict(row)
+                    
+            if not matched_hymn and hymn_num is not None:
+                row = cursor.execute(
+                    "SELECT id, file_path FROM hymns WHERE hymn_number = ? LIMIT 1",
+                    (hymn_num,)
+                ).fetchone()
+                if row:
+                    matched_hymn = dict(row)
+                    
+            if not matched_hymn and item_title:
+                row = cursor.execute(
+                    "SELECT id, file_path FROM hymns WHERE LOWER(title) = LOWER(?) LIMIT 1",
+                    (item_title.strip(),)
+                ).fetchone()
+                if row:
+                    matched_hymn = dict(row)
+
+        hymn_id = None
+        file_path = ""
+        if matched_hymn:
+            hymn_id = matched_hymn["id"]
+            if matched_hymn.get("file_path") and os.path.exists(matched_hymn["file_path"]):
+                file_path = matched_hymn["file_path"]
+                matched_count += 1
+            else:
+                missing_count += 1
+        else:
+            missing_count += 1
+            
+        with get_db_connection(db_path) as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                INSERT INTO service_items (service_id, hymn_id, slot_name, item_title, sequence_order, file_path, is_hymn_slot)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+            """, (new_service_id, hymn_id, slot_name, item_title, seq, file_path, is_hymn))
+            conn.commit()
+            
+    return {
+        "status": "success",
+        "service_id": new_service_id,
+        "title": title,
+        "matched_count": matched_count,
+        "missing_count": missing_count,
+        "total_items": len(raw_items)
+    }
+
+
 

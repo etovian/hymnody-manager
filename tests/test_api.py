@@ -237,6 +237,49 @@ def test_static_files_no_cache_headers():
     assert res_root.status_code == 200
     assert "no-cache" in res_root.headers.get("cache-control", "")
 
+def test_export_service_plan_api(tmp_path):
+    db_path = str(tmp_path / "api_export_plan_test.db")
+    os.environ["HYMNODY_DB_PATH"] = db_path
+    init_db(db_path)
+    
+    srv_res = client.post("/api/services", json={
+        "title": "Export Test Service",
+        "service_date": "2026-12-06",
+        "setting_preset": "DS1"
+    })
+    srv_id = srv_res.json()["id"]
+    
+    res = client.get(f"/api/services/{srv_id}/export-plan")
+    assert res.status_code == 200
+    assert res.headers["content-type"] == "application/json"
+    assert "attachment;" in res.headers["content-disposition"]
+    data = res.json()
+    assert data["version"] == "1.0"
+    assert data["service"]["title"] == "Export Test Service"
+
+def test_import_service_plan_api(tmp_path):
+    db_path = str(tmp_path / "api_import_plan_test.db")
+    os.environ["HYMNODY_DB_PATH"] = db_path
+    init_db(db_path)
+    
+    plan_data = {
+        "version": "1.0",
+        "exported_at": "2026-09-12T18:30:00Z",
+        "service": {
+            "title": "Import Test Service",
+            "setting_preset": "DS1",
+            "service_date": "2026-12-06",
+            "items": []
+        }
+    }
+    
+    res = client.post("/api/services/import-plan", json=plan_data)
+    assert res.status_code == 200
+    res_data = res.json()
+    assert res_data["status"] == "success"
+    assert "service_id" in res_data
+
+
 
 
 

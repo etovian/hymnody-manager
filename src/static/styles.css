@@ -723,6 +723,39 @@ body {
   border-left-color: #ef4444;
 }
 
+.toast-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.toast-title {
+  font-weight: 700;
+  font-size: 0.85rem;
+  margin-bottom: 2px;
+}
+
+.toast-message {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  word-break: break-word;
+}
+
+.toast-close {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: 1.25rem;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0 4px;
+  margin-left: 4px;
+  transition: color 0.15s;
+}
+
+.toast-close:hover {
+  color: white;
+}
+
 @media (max-width: 480px) {
   .toast-container {
     top: 10px;

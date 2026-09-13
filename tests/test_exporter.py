@@ -220,6 +220,50 @@ def test_preservice_playlist_excludes_hymn_in_ordinary_slot(tmp_path):
             preservice_content = zf.read("00_Preservice_Meditation.m3u").decode("utf-8")
             assert "01_Magnificat_Hymn_933_-_My_Soul_Rejoices.m4a" not in preservice_content
 
+def test_export_service_plan_json(tmp_path):
+    db_path = str(tmp_path / "test_export_json.db")
+    init_db(db_path)
+    
+    sample_file = str(tmp_path / "hymn_331.m4a")
+    with open(sample_file, "wb") as f:
+        f.write(b"dummy m4a audio")
+        
+    save_hymns([{
+        'hymn_number': 331,
+        'title': 'The advent of our King',
+        'disc_number': 1,
+        'track_number': 5,
+        'album': 'The Concordia Organist',
+        'artist': 'CPH',
+        'year': 2009,
+        'file_path': sample_file,
+        'liturgical_season': 'Advent',
+        'tune': 'ST. THOMAS'
+    }], db_path)
+    
+    srv_id = create_service_from_preset("Second Sunday in Advent", "2026-12-06", "DS1", db_path=db_path)
+    details = get_service_details(srv_id, db_path=db_path)
+    items = details['items']
+    items[0]['hymn_id'] = 1
+    items[0]['file_path'] = sample_file
+    items[0]['item_title'] = "The advent of our King"
+    update_service_items(srv_id, items, db_path=db_path)
+    
+    from src.exporter import export_service_plan_json
+    plan_dict = export_service_plan_json(srv_id, db_path=db_path)
+    assert plan_dict is not None
+    assert plan_dict["version"] == "1.0"
+    assert plan_dict["service"]["title"] == "Second Sunday in Advent"
+    exported_items = plan_dict["service"]["items"]
+    assert len(exported_items) > 0
+    hymn_item = exported_items[0]
+    assert hymn_item["hymn_number"] == 331
+    assert hymn_item["disc_number"] == 1
+    assert hymn_item["track_number"] == 5
+    assert hymn_item["album"] == "The Concordia Organist"
+
+
+
 
 
 
