@@ -30,8 +30,9 @@ const MOBILE_UI_MODE = {
 let currentPlaybackMode = PLAYBACK_MODE.SINGLE;
 let currentMobileUiMode = MOBILE_UI_MODE.SERVICE;
 
-function getActiveDisplayItems() {
-  const items = mobileService ? (mobileService.items || []) : [];
+function getActiveDisplayItems(targetService = mobileService) {
+  const activeSvc = targetService || mobileService || currentService;
+  const items = activeSvc ? (activeSvc.items || []) : [];
   if (currentMobileUiMode === MOBILE_UI_MODE.PRESERVICE) {
     return items.filter(item => {
       const hasAudio = Boolean(item.file_path && item.file_path.trim());
@@ -1607,7 +1608,7 @@ function renderMobilePlaylist(service = mobileService) {
   if (!mobilePlaylist) return;
   mobilePlaylist.innerHTML = '';
 
-  const items = getActiveDisplayItems();
+  const items = getActiveDisplayItems(service);
   if (items.length === 0) {
     const msg = (currentMobileUiMode === MOBILE_UI_MODE.PRESERVICE)
       ? 'No hymns with audio files available in this service plan.'

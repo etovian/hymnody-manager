@@ -9,7 +9,7 @@ def test_mobile_mode_constants_present():
     assert "const MOBILE_UI_MODE" in content
     assert "SERVICE: 'SERVICE'" in content
     assert "PRESERVICE: 'PRESERVICE'" in content
-    assert "function getActiveDisplayItems()" in content
+    assert "function getActiveDisplayItems" in content
 
 def test_mobile_header_toggle_button_present():
     with open("src/static/index.html", "r", encoding="utf-8") as f:
