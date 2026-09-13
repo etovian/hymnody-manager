@@ -128,6 +128,16 @@ function switchView(mode, isExplicitUserAction = true) {
     if (playerBar) playerBar.classList.add('hidden');
     if (btnMobile) btnMobile.classList.add('active');
     if (btnDesktop) btnDesktop.classList.remove('active');
+
+    if (allSavedServices && allSavedServices.length > 0) {
+      updateMobileServiceDropdown(allSavedServices);
+    }
+    if (currentService && (!mobileService || mobileService.id !== currentService.id)) {
+      mobileService = currentService;
+    }
+    updateMobileHeaderModeButton();
+    renderMobileServiceInfo();
+    renderMobilePlaylist();
   }
 }
 
@@ -694,7 +704,7 @@ function renderService(service) {
     container.appendChild(el);
   });
 
-  if (!mobileService) {
+  if (!mobileService || mobileService.id === service.id) {
     mobileService = service;
     renderMobileServiceInfo();
   }
