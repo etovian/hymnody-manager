@@ -194,8 +194,12 @@
       <div class="mobile-card">
         <div class="mobile-header">
           <h2 id="mobile-service-title" style="font-size: 1.5rem; font-weight: 800; color: white;">Sunday Worship Service</h2>
-          <p id="mobile-service-subtitle" class="subtitle">Divine Service Setting Two</p>
-          <select id="mobile-service-select" class="mobile-service-select" aria-label="Select Worship Service" onchange="onMobileServiceSelectChanged(this.value)"></select>
+          <div class="mobile-header-controls" style="display: flex; gap: 8px; align-items: center; margin-top: 8px;">
+            <select id="mobile-service-select" class="mobile-service-select" aria-label="Select Worship Service" onchange="onMobileServiceSelectChanged(this.value)" style="flex: 1; margin: 0;"></select>
+            <button id="btn-mobile-mode-toggle" class="btn btn-emerald btn-preservice-pill" onclick="toggleMobileUiMode()" style="white-space: nowrap; padding: 10px 14px; font-weight: 700; border-radius: 8px; font-size: 0.85rem;">
+              📜 Full Service
+            </button>
+          </div>
         </div>
 
         <div class="mobile-track-list-section" style="text-align: left;">
