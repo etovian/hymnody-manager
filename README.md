@@ -38,12 +38,31 @@ It indexes `.m4a` accompaniment audio files (specifically *The Concordia Organis
 - Git
 
 ### 2. Setup Environment
-Clone the repository and install dependencies:
+Clone the repository, then install dependencies for your platform.
+
 ```bash
 git clone https://github.com/etovian/hymnody-manager.git
 cd hymnody-manager
+```
+
+**Windows (native Python):**
+```bash
 pip install -r requirements.txt
 ```
+Run with `python run_server.py`.
+
+**macOS (uv):**
+```bash
+uv venv --python 3.13
+uv pip install -r requirements.txt
+```
+Run with `uv run run_server.py`.
+
+> [!IMPORTANT]
+> On macOS, always go through `uv run`. `uv` ignores globally installed packages,
+> so without a `.venv` in the project root it builds a clean, empty environment
+> and every dependency fails with `ModuleNotFoundError`. The `.venv/` directory
+> is git ignored, so each node maintains its own.
 
 ---
 
