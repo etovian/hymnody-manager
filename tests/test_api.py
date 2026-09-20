@@ -5,6 +5,7 @@ from src.main import app
 from src.database import init_db, save_hymns, normalize_path
 
 from src.services import create_service_from_preset
+from src.config import DEFAULT_MUSIC_DIR
 
 client = TestClient(app)
 
@@ -13,7 +14,7 @@ def test_full_api_workflow(tmp_path):
     os.environ["HYMNODY_DB_PATH"] = db_path
     init_db(db_path)
     
-    sample_file = r'c:\dev\IdeaProjects\hymnody-manager\music\1-01 331 - The advent of our King.m4a'
+    sample_file = str(DEFAULT_MUSIC_DIR / '1-01 331 - The advent of our King.m4a')
     save_hymns([{
         'hymn_number': 331,
         'title': 'The advent of our King',

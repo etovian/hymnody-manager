@@ -80,7 +80,7 @@ Then open `http://localhost:8000` in your web browser.
 | Variable | Description | Default |
 | :--- | :--- | :--- |
 | `HYMNODY_DB_PATH` | Path to SQLite database file | `hymnody.db` |
-| `MUSIC_DIR` | Directory containing `.m4a` audio files | `c:\dev\IdeaProjects\hymnody-manager\music` |
+| `MUSIC_DIR` | Directory containing `.m4a` audio files | `music/` alongside the repo root (resolved at runtime; works on Windows and macOS) |
 
 ---
 

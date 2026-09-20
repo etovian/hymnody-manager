@@ -2,6 +2,7 @@ import os
 import sqlite3
 import pytest
 from src.database import init_db, save_hymns, search_hymns, get_hymn_by_id, get_db_connection, normalize_path
+from src.config import DEFAULT_MUSIC_DIR
 
 
 def test_db_init_and_hymns_crud(tmp_path):
@@ -19,7 +20,7 @@ def test_db_init_and_hymns_crud(tmp_path):
             'album': 'The Concordia Organist',
             'artist': 'Concordia Publishing House',
             'year': 2009,
-            'file_path': r'c:\dev\IdeaProjects\hymnody-manager\music\1-01 331 - The advent of our King.m4a',
+            'file_path': str(DEFAULT_MUSIC_DIR / '1-01 331 - The advent of our King.m4a'),
             'liturgical_season': 'Advent'
         },
         {
@@ -30,7 +31,7 @@ def test_db_init_and_hymns_crud(tmp_path):
             'album': 'The Concordia Organist',
             'artist': 'Concordia Publishing House',
             'year': 2009,
-            'file_path': r'c:\dev\IdeaProjects\hymnody-manager\music\1-02 332 - Savior of the nations, come.m4a',
+            'file_path': str(DEFAULT_MUSIC_DIR / '1-02 332 - Savior of the nations, come.m4a'),
             'liturgical_season': 'Advent'
         }
     ]
@@ -81,7 +82,7 @@ def test_search_hymns_by_category_type_and_aliases(tmp_path):
             'album': 'The Concordia Organist',
             'artist': 'Concordia Publishing House',
             'year': 2009,
-            'file_path': r'c:\dev\IdeaProjects\hymnody-manager\music\1-01 331.m4a',
+            'file_path': str(DEFAULT_MUSIC_DIR / '1-01 331.m4a'),
             'liturgical_season': 'Advent'
         },
         {
@@ -92,7 +93,7 @@ def test_search_hymns_by_category_type_and_aliases(tmp_path):
             'album': 'The Concordia Organist',
             'artist': 'Concordia Publishing House',
             'year': 2009,
-            'file_path': r'c:\dev\IdeaProjects\hymnody-manager\music\30-01 MA.m4a',
+            'file_path': str(DEFAULT_MUSIC_DIR / '30-01 MA.m4a'),
             'liturgical_season': 'Matins'
         },
         {
@@ -103,7 +104,7 @@ def test_search_hymns_by_category_type_and_aliases(tmp_path):
             'album': 'The Concordia Organist',
             'artist': 'Concordia Publishing House',
             'year': 2009,
-            'file_path': r'c:\dev\IdeaProjects\hymnody-manager\music\30-02 VE.m4a',
+            'file_path': str(DEFAULT_MUSIC_DIR / '30-02 VE.m4a'),
             'liturgical_season': 'Vespers'
         },
         {
@@ -114,7 +115,7 @@ def test_search_hymns_by_category_type_and_aliases(tmp_path):
             'album': 'The Concordia Organist',
             'artist': 'Concordia Publishing House',
             'year': 2009,
-            'file_path': r'c:\dev\IdeaProjects\hymnody-manager\music\30-03 CO.m4a',
+            'file_path': str(DEFAULT_MUSIC_DIR / '30-03 CO.m4a'),
             'liturgical_season': 'Compline'
         },
         {
@@ -125,7 +126,7 @@ def test_search_hymns_by_category_type_and_aliases(tmp_path):
             'album': 'The Concordia Organist',
             'artist': 'Concordia Publishing House',
             'year': 2009,
-            'file_path': r'c:\dev\IdeaProjects\hymnody-manager\music\30-04 MP.m4a',
+            'file_path': str(DEFAULT_MUSIC_DIR / '30-04 MP.m4a'),
             'liturgical_season': 'Morning Prayer'
         },
         {
@@ -136,7 +137,7 @@ def test_search_hymns_by_category_type_and_aliases(tmp_path):
             'album': 'The Concordia Organist',
             'artist': 'Concordia Publishing House',
             'year': 2009,
-            'file_path': r'c:\dev\IdeaProjects\hymnody-manager\music\30-05 EP.m4a',
+            'file_path': str(DEFAULT_MUSIC_DIR / '30-05 EP.m4a'),
             'liturgical_season': 'Evening Prayer'
         }
     ]
@@ -353,3 +354,28 @@ def test_init_db_adds_and_backfills_is_hymn_slot(tmp_path):
 
 
 
+
+
+def test_normalize_path_preserves_native_posix_paths():
+    """A POSIX absolute path must stay openable; backslash-mangling breaks it."""
+    native = str(DEFAULT_MUSIC_DIR / "1-01 331.m4a")
+    result = normalize_path(native)
+    if os.name != "nt":
+        assert result == native
+        assert "\\" not in result
+
+
+def test_normalize_path_keeps_windows_paths_windows_shaped_on_any_host():
+    """Rows written by the Windows nodes must normalize identically everywhere."""
+    assert normalize_path(r"c:\music\track1.m4a") == r"C:\music\track1.m4a"
+    assert normalize_path("c:/music/30-06.m4a") == r"C:\music\30-06.m4a"
+    assert normalize_path(r"D:/Audio/x.m4a") == r"D:\Audio\x.m4a"
+
+
+def test_normalize_path_dedups_mixed_slash_windows_variants():
+    assert normalize_path("c:/music/a.m4a") == normalize_path(r"c:\music\a.m4a")
+
+
+def test_normalize_path_handles_empty_and_none():
+    assert normalize_path("") == ""
+    assert normalize_path(None) == ""

@@ -4,11 +4,26 @@ import re
 
 DEFAULT_DB_PATH = "hymnody.db"
 
+_WINDOWS_ABS = re.compile(r'^[A-Za-z]:[\\/]')
+
+
 def normalize_path(path):
+    """Canonicalize a file path for storage and deduplication.
+
+    A path is normalized according to its own shape, not the host OS, so a
+    hymnody.db written on a Windows node stays readable on macOS and vice
+    versa: drive-lettered paths always canonicalize to Windows form
+    (uppercase drive, backslashes), everything else to the native form.
+    """
     if not path:
         return ""
-    norm = os.path.abspath(path).replace('/', '\\')
-    if len(norm) >= 2 and norm[1] == ':':
+    if _WINDOWS_ABS.match(path):
+        norm = os.path.abspath(path) if os.name == 'nt' else path
+        norm = norm.replace('/', '\\')
+        return norm[0].upper() + norm[1:]
+    norm = os.path.abspath(path)
+    if _WINDOWS_ABS.match(norm):
+        norm = norm.replace('/', '\\')
         norm = norm[0].upper() + norm[1:]
     return norm
 

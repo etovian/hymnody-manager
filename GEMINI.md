@@ -50,13 +50,14 @@ c:\dev\IdeaProjects\hymnody-manager\
 ├── scripts\
 │   └── cleanup_duplicates.py # Maintenance script to purge duplicate suffixed audio files
 ├── src\
+│   ├── config.py           # Repo-root-relative paths (MUSIC_DIR default), OS agnostic
 │   ├── scanner.py          # MP4 atom metadata parser, directory scanner & deduplication
 │   ├── database.py         # SQLite schema initialization, migrations & CRUD repository
 │   ├── services.py         # Presets, template builder & liturgical rubric validator
 │   ├── exporter.py         # Mobile zip package & m3u generator with dynamic naming
 │   ├── main.py             # FastAPI REST endpoints & HTTP 206 range streamer
 │   └── static\             # Frontend web assets (index.html, styles.css, app.js)
-├── tests\                  # Automated pytest test suite (58 passing tests)
+├── tests\                  # Automated pytest test suite (92 tests, all passing)
 │   ├── test_api.py
 │   ├── test_cleanup_duplicates.py
 │   ├── test_database.py
@@ -80,7 +81,7 @@ c:\dev\IdeaProjects\hymnody-manager\
 3. **No Heavy Frontend Frameworks**: Use vanilla HTML5, CSS (Tailwind via CDN or CSS variables), and JavaScript to keep the application lightweight and dependency-free.
 4. **Environment Variables**:
    - `HYMNODY_DB_PATH`: Path to SQLite database (defaults to `hymnody.db`).
-   - `MUSIC_DIR`: Path to `.m4a` audio directory (defaults to `c:\dev\IdeaProjects\hymnody-manager\music`).
+   - `MUSIC_DIR`: Path to `.m4a` audio directory (defaults to the repo-root `music/` folder, resolved at runtime via `src/config.py` so the same checkout works on Windows and macOS).
 
 ---
 

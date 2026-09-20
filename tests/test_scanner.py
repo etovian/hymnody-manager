@@ -1,9 +1,10 @@
 import os
 import pytest
 from src.scanner import parse_hymn_file, scan_hymns_directory
+from src.config import DEFAULT_MUSIC_DIR
 
 def test_parse_hymn_file_advent():
-    sample_path = r'c:\dev\IdeaProjects\hymnody-manager\music\1-01 331 - The advent of our King.m4a'
+    sample_path = str(DEFAULT_MUSIC_DIR / '1-01 331 - The advent of our King.m4a')
     assert os.path.exists(sample_path)
     
     meta = parse_hymn_file(sample_path)
@@ -17,7 +18,7 @@ def test_parse_hymn_file_advent():
     assert meta['liturgical_season'] == "Advent"
 
 def test_parse_hymn_file_liturgical():
-    sample_path = r'c:\dev\IdeaProjects\hymnody-manager\music\30-30 DS2 - Kyrie_ Intonation.m4a'
+    sample_path = str(DEFAULT_MUSIC_DIR / '30-30 DS2 - Kyrie_ Intonation.m4a')
     assert os.path.exists(sample_path)
     
     meta = parse_hymn_file(sample_path)
@@ -26,12 +27,12 @@ def test_parse_hymn_file_liturgical():
     assert "DS2 - Kyrie" in meta['title']
 
 def test_scan_hymns_directory():
-    music_dir = r'c:\dev\IdeaProjects\hymnody-manager\music'
+    music_dir = str(DEFAULT_MUSIC_DIR)
     results = scan_hymns_directory(music_dir)
     assert len(results) > 300
 
 def test_parse_hymn_file_office_settings_and_sacramental_ranges():
-    base_dir = r'c:\dev\IdeaProjects\hymnody-manager\music'
+    base_dir = str(DEFAULT_MUSIC_DIR)
     
     # Test LSB Sacramental & Seasonal ranges
     meta_bap = parse_hymn_file(os.path.join(base_dir, '13-23 601 - All who believe and are baptized.m4a'))

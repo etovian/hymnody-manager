@@ -1,6 +1,5 @@
 # Audio files directory (ignored from git tracking)
 music/
-hymns/
 
 # SQLite Database
 *.db
