@@ -14,13 +14,11 @@ from src.services import (
     save_template, delete_template, get_hymn_usage_analytics, import_service_plan_json
 )
 from src.exporter import export_service_zip, export_service_plan_json, generate_export_filename
+from src.config import get_music_dir
 
 
 def get_db_path():
     return os.environ.get("HYMNODY_DB_PATH", "hymnody.db")
-
-def get_music_dir():
-    return os.environ.get("MUSIC_DIR", r"c:\dev\IdeaProjects\hymnody-manager\music")
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):

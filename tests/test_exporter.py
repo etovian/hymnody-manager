@@ -4,6 +4,7 @@ import pytest
 from src.database import init_db, save_hymns
 from src.services import create_service_from_preset, get_service_details, update_service_items
 from src.exporter import export_service_zip, generate_export_filename
+from src.config import DEFAULT_MUSIC_DIR
 
 def test_generate_export_filename_with_liturgical_day():
     service = {
@@ -56,7 +57,7 @@ def test_export_service_zip(tmp_path):
     db_path = str(tmp_path / "export_test.db")
     init_db(db_path)
     
-    sample_file = r'c:\dev\IdeaProjects\hymnody-manager\music\1-01 331 - The advent of our King.m4a'
+    sample_file = str(DEFAULT_MUSIC_DIR / '1-01 331 - The advent of our King.m4a')
     save_hymns([{
         'hymn_number': 331,
         'title': 'The advent of our King',

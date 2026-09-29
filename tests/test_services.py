@@ -2,6 +2,7 @@ import os
 import pytest
 from src.database import init_db, save_hymns
 from src.services import create_service_from_preset, get_service_details, update_service_items
+from src.config import DEFAULT_MUSIC_DIR
 
 def test_create_service_ds2_preset(tmp_path):
     db_path = str(tmp_path / "services_test.db")
@@ -17,7 +18,7 @@ def test_create_service_ds2_preset(tmp_path):
             'album': 'The Concordia Organist',
             'artist': 'Concordia Publishing House',
             'year': 2009,
-            'file_path': r'c:\dev\IdeaProjects\hymnody-manager\music\30-30 DS2 - Kyrie_ Intonation.m4a',
+            'file_path': str(DEFAULT_MUSIC_DIR / '30-30 DS2 - Kyrie_ Intonation.m4a'),
             'liturgical_season': 'Liturgical'
         },
         {
@@ -28,7 +29,7 @@ def test_create_service_ds2_preset(tmp_path):
             'album': 'The Concordia Organist',
             'artist': 'Concordia Publishing House',
             'year': 2009,
-            'file_path': r'c:\dev\IdeaProjects\hymnody-manager\music\30-31 DS2 - Gloria in Excelsis.m4a',
+            'file_path': str(DEFAULT_MUSIC_DIR / '30-31 DS2 - Gloria in Excelsis.m4a'),
             'liturgical_season': 'Liturgical'
         }
     ], db_path)
@@ -68,7 +69,7 @@ def test_update_service_items(tmp_path):
     # Assign a hymn to Opening Hymn slot
     items[0]['hymn_id'] = 1
     items[0]['item_title'] = "LSB 331 - The advent of our King"
-    items[0]['file_path'] = r"c:\dev\IdeaProjects\hymnody-manager\music\1-01 331 - The advent of our King.m4a"
+    items[0]['file_path'] = str(DEFAULT_MUSIC_DIR / "1-01 331 - The advent of our King.m4a")
     
     update_service_items(service_id, items, db_path=db_path)
     
@@ -163,7 +164,7 @@ def test_matins_and_vespers_canticles_matching(tmp_path):
             'album': 'The Concordia Organist',
             'artist': 'Concordia Publishing House',
             'year': 2009,
-            'file_path': r'c:\dev\IdeaProjects\hymnody-manager\music\31-04 MA - Antiphon & Venite.m4a',
+            'file_path': str(DEFAULT_MUSIC_DIR / '31-04 MA - Antiphon & Venite.m4a'),
             'liturgical_season': 'General'
         },
         {
@@ -174,7 +175,7 @@ def test_matins_and_vespers_canticles_matching(tmp_path):
             'album': 'The Concordia Organist',
             'artist': 'Concordia Publishing House',
             'year': 2009,
-            'file_path': r'c:\dev\IdeaProjects\hymnody-manager\music\31-10 MA - Te Deum.m4a',
+            'file_path': str(DEFAULT_MUSIC_DIR / '31-10 MA - Te Deum.m4a'),
             'liturgical_season': 'General'
         },
         {
@@ -185,7 +186,7 @@ def test_matins_and_vespers_canticles_matching(tmp_path):
             'album': 'The Concordia Organist',
             'artist': 'Concordia Publishing House',
             'year': 2009,
-            'file_path': r'c:\dev\IdeaProjects\hymnody-manager\music\31-27 VE - Magnificat.m4a',
+            'file_path': str(DEFAULT_MUSIC_DIR / '31-27 VE - Magnificat.m4a'),
             'liturgical_season': 'General'
         }
     ], db_path)

@@ -50,13 +50,14 @@ c:\dev\IdeaProjects\hymnody-manager\
 ├── scripts\
 │   └── cleanup_duplicates.py # Maintenance script to purge duplicate suffixed audio files
 ├── src\
+│   ├── config.py           # Repo-root-relative paths (MUSIC_DIR default), OS agnostic
 │   ├── scanner.py          # MP4 atom metadata parser, directory scanner & deduplication
 │   ├── database.py         # SQLite schema initialization, migrations & CRUD repository
 │   ├── services.py         # Presets, template builder & liturgical rubric validator
 │   ├── exporter.py         # Mobile zip package & m3u generator with dynamic naming
 │   ├── main.py             # FastAPI REST endpoints & HTTP 206 range streamer
 │   └── static\             # Frontend web assets (index.html, styles.css, app.js)
-├── tests\                  # Automated pytest test suite (58 passing tests)
+├── tests\                  # Automated pytest test suite (92 tests, all passing)
 │   ├── test_api.py
 │   ├── test_cleanup_duplicates.py
 │   ├── test_database.py
@@ -80,30 +81,45 @@ c:\dev\IdeaProjects\hymnody-manager\
 3. **No Heavy Frontend Frameworks**: Use vanilla HTML5, CSS (Tailwind via CDN or CSS variables), and JavaScript to keep the application lightweight and dependency-free.
 4. **Environment Variables**:
    - `HYMNODY_DB_PATH`: Path to SQLite database (defaults to `hymnody.db`).
-   - `MUSIC_DIR`: Path to `.m4a` audio directory (defaults to `c:\dev\IdeaProjects\hymnody-manager\music`).
+   - `MUSIC_DIR`: Path to `.m4a` audio directory (defaults to the repo-root `music/` folder, resolved at runtime via `src/config.py` so the same checkout works on Windows and macOS).
 
 ---
 
 ## Useful Commands
 
+This project runs on two nodes with different toolchains: the **Windows** nodes
+(Home/Church) use native Python, the **macOS** node uses `uv`. Both read the same
+`requirements.txt`.
+
 - **Run Test Suite**:
   ```bash
-  pytest -v
+  python -m pytest -v        # Windows
+  uv run pytest -v           # macOS
   ```
 - **Start Development Server (LAN & Mobile Testing with Terminal QR Code)**:
   ```bash
-  python run_server.py
+  python run_server.py       # Windows
+  uv run run_server.py       # macOS
   ```
 - **Start Development Server (Local Only)**:
   ```bash
-  uvicorn src.main:app --reload --port 8000
+  python -m uvicorn src.main:app --reload --port 8000    # Windows
+  uv run uvicorn src.main:app --reload --port 8000       # macOS
   ```
 - **Purge Duplicate Audio Tracks (Dry Run)**:
   ```bash
-  python scripts/cleanup_duplicates.py --dry-run
+  python scripts/cleanup_duplicates.py --dry-run         # Windows
+  uv run scripts/cleanup_duplicates.py --dry-run         # macOS
   ```
 - **Access App**: Open `http://localhost:8000` (or scanned mobile LAN URL) in browser.
 
+> [!IMPORTANT]
+> On the macOS node, always go through `uv run`. `uv` ignores globally installed
+> packages, so without a `.venv` in the project root it builds a clean, empty
+> environment and every dependency fails with `ModuleNotFoundError` (the first
+> one hit is `qrcode`, imported at `run_server.py:5`). Create it once with
+> `uv venv --python 3.13 && uv pip install -r requirements.txt`. The `.venv/`
+> directory is git ignored, so each node maintains its own.
 
 ---
 

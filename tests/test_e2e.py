@@ -3,13 +3,14 @@ import pytest
 from fastapi.testclient import TestClient
 from src.main import app
 from src.database import init_db
+from src.config import DEFAULT_MUSIC_DIR
 
 client = TestClient(app)
 
 def test_full_application_e2e_workflow(tmp_path):
     db_path = str(tmp_path / "e2e_app.db")
     os.environ["HYMNODY_DB_PATH"] = db_path
-    os.environ["MUSIC_DIR"] = r"c:\dev\IdeaProjects\hymnody-manager\music"
+    os.environ["MUSIC_DIR"] = str(DEFAULT_MUSIC_DIR)
     init_db(db_path)
     
     # 1. Rescan music directory
@@ -71,7 +72,7 @@ def test_full_application_e2e_workflow(tmp_path):
 def test_dual_tab_hymnal_catalog_e2e(tmp_path):
     db_path = str(tmp_path / "e2e_dual_tab.db")
     os.environ["HYMNODY_DB_PATH"] = db_path
-    os.environ["MUSIC_DIR"] = r"c:\dev\IdeaProjects\hymnody-manager\music"
+    os.environ["MUSIC_DIR"] = str(DEFAULT_MUSIC_DIR)
     init_db(db_path)
 
     # Rescan directory to populate DB
@@ -96,7 +97,7 @@ def test_dual_tab_hymnal_catalog_e2e(tmp_path):
 def test_alphabetized_filters_and_sorting(tmp_path):
     db_path = str(tmp_path / "e2e_sorting.db")
     os.environ["HYMNODY_DB_PATH"] = db_path
-    os.environ["MUSIC_DIR"] = r"c:\dev\IdeaProjects\hymnody-manager\music"
+    os.environ["MUSIC_DIR"] = str(DEFAULT_MUSIC_DIR)
     init_db(db_path)
 
     scan_res = client.post("/api/scan")
@@ -311,7 +312,7 @@ def test_mobile_mode_task3_code_quality():
 def test_mobile_service_selection_api_e2e(tmp_path):
     db_path = str(tmp_path / "e2e_mobile_service.db")
     os.environ["HYMNODY_DB_PATH"] = db_path
-    os.environ["MUSIC_DIR"] = r"c:\dev\IdeaProjects\hymnody-manager\music"
+    os.environ["MUSIC_DIR"] = str(DEFAULT_MUSIC_DIR)
     init_db(db_path)
 
     # 1. Populate database with audio tracks
