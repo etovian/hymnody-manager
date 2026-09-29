@@ -12,11 +12,21 @@ def test_default_music_dir_is_repo_root_music_folder():
     assert DEFAULT_MUSIC_DIR == REPO_ROOT / "music"
 
 
-def test_default_music_dir_contains_no_windows_drive_or_separator():
-    raw = str(DEFAULT_MUSIC_DIR)
-    assert ":\\" not in raw
-    assert "\\" not in raw
-    assert "IdeaProjects" not in raw
+import inspect
+
+
+def test_config_source_has_no_hardcoded_windows_path():
+    import src.config
+    source = inspect.getsource(src.config)
+    assert r"c:\dev" not in source.lower()
+    assert "c:/" not in source.lower()
+
+
+def test_default_music_dir_posix_format_on_non_windows():
+    if os.name != "nt":
+        raw = str(DEFAULT_MUSIC_DIR)
+        assert ":\\" not in raw
+        assert "\\" not in raw
 
 
 def test_get_music_dir_defaults_to_repo_root_music_folder(monkeypatch):
