@@ -815,10 +815,32 @@ body {
   transform: scale(0.98);
 }
 
-.mobile-restart-btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
+
+.mobile-header-controls {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-top: 8px;
+  width: 100%;
 }
+
+.btn-preservice-pill {
+  white-space: nowrap;
+  padding: 10px 14px;
+  font-weight: 700;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.btn-preservice-active {
+  background: linear-gradient(135deg, #d97706, #b45309) !important;
+  color: #ffffff !important;
+  border: 1px solid #f59e0b !important;
+  box-shadow: 0 0 8px rgba(245, 158, 11, 0.4);
+}
+
 
 
 
