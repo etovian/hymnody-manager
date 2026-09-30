@@ -282,6 +282,37 @@ def test_import_service_plan_api(tmp_path):
     assert "service_id" in res_data
 
 
+def test_get_hymns_returns_tune_and_source_and_filters(tmp_path):
+    db_path = str(tmp_path / "api_tune_source_test.db")
+    os.environ["HYMNODY_DB_PATH"] = db_path
+    init_db(db_path)
+
+    # 1. GET /api/hymns returns JSON array where items contain tune_name and source_meaning
+    res = client.get("/api/hymns")
+    assert res.status_code == 200
+    hymns = res.json()
+    assert len(hymns) > 0
+    h331 = next((h for h in hymns if h.get('hymn_number') == 331), None)
+    assert h331 is not None
+    assert h331.get('tune_name') == "St. Thomas"
+    assert h331.get('source_meaning') == "Roman Catholic hymns to 1900"
+
+    # 2. GET /api/hymns?q=St.%20Thomas returns hymns matching tune name St. Thomas
+    res_tune = client.get("/api/hymns?q=St.%20Thomas")
+    assert res_tune.status_code == 200
+    tune_results = res_tune.json()
+    assert len(tune_results) > 0
+    assert any(h.get('tune_name') == "St. Thomas" for h in tune_results)
+
+    # 3. GET /api/hymns?q=Luther returns hymns matching source meaning Luther
+    res_source = client.get("/api/hymns?q=Luther")
+    assert res_source.status_code == 200
+    source_results = res_source.json()
+    assert len(source_results) > 0
+    assert any(h.get('source_meaning') == "Luther" for h in source_results)
+
+
+
 
 
 

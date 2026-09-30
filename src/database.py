@@ -411,8 +411,8 @@ def search_hymns(query=None, season=None, category_type=None, disc=None, db_path
             query_str = str(query).strip()
             q_lower = query_str.lower()
             if query_str.isdigit():
-                sql += " AND (hymns.hymn_number = ? OR hymns.title LIKE ? OR hymns.liturgical_season LIKE ?)"
-                params.extend([int(query_str), f"%{query_str}%", f"%{query_str}%"])
+                sql += " AND (hymns.hymn_number = ? OR hymns.title LIKE ? OR hymns.liturgical_season LIKE ? OR tunes.name LIKE ? OR sources.meaning LIKE ?)"
+                params.extend([int(query_str), f"%{query_str}%", f"%{query_str}%", f"%{query_str}%", f"%{query_str}%"])
                 order_by_case = "CASE WHEN hymns.hymn_number = ? THEN 0 WHEN LOWER(hymns.title) = LOWER(?) THEN 1 WHEN LOWER(hymns.title) LIKE LOWER(?) || '%' THEN 2 ELSE 3 END ASC, "
                 order_params = [int(query_str), query_str, query_str]
             elif q_lower in ('matins', 'ma'):
@@ -426,8 +426,8 @@ def search_hymns(query=None, season=None, category_type=None, disc=None, db_path
             elif q_lower in ('evening prayer', 'ep'):
                 sql += " AND (hymns.liturgical_season = 'Evening Prayer' OR hymns.title LIKE 'EP - %' OR hymns.title LIKE '%evening prayer%')"
             else:
-                sql += " AND (hymns.title LIKE ? OR hymns.liturgical_season LIKE ?)"
-                params.extend([f"%{query_str}%", f"%{query_str}%"])
+                sql += " AND (hymns.title LIKE ? OR hymns.liturgical_season LIKE ? OR tunes.name LIKE ? OR sources.meaning LIKE ?)"
+                params.extend([f"%{query_str}%", f"%{query_str}%", f"%{query_str}%", f"%{query_str}%"])
                 order_by_case = "CASE WHEN LOWER(hymns.title) = LOWER(?) THEN 0 WHEN LOWER(hymns.title) LIKE LOWER(?) || '%' THEN 1 ELSE 2 END ASC, "
                 order_params = [query_str, query_str]
 
