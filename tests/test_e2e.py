@@ -428,4 +428,16 @@ def test_draggable_template_elements_styles():
     assert "cursor: grab" in css or "cursor:grab" in css, "styles.css should specify grab cursor for draggable slot chips"
 
 
+def test_hymnal_catalog_tune_and_source_ui_rendering_and_search_logic():
+    res = client.get("/static/app.js")
+    assert res.status_code == 200
+    js = res.text
+
+    assert "🎵 Tune:" in js, "app.js should render 🎵 Tune: metadata line in catalog item"
+    assert "📜 Source:" in js, "app.js should render 📜 Source: metadata line in catalog item"
+    assert "tune_name" in js, "app.js should reference tune_name for metadata rendering and search filtering"
+    assert "source_meaning" in js, "app.js should reference source_meaning for metadata rendering and search filtering"
+
+
+
 

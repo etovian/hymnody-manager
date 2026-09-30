@@ -196,6 +196,18 @@ function filterSeason(val) {
   handleSearch();
 }
 
+function filterHymns(hymns, query) {
+  if (!query) return hymns;
+  const q = String(query).toLowerCase().trim();
+  return hymns.filter(h =>
+    (h.title || '').toLowerCase().includes(q) ||
+    (h.hymn_number || '').toString().includes(q) ||
+    (h.liturgical_season || '').toLowerCase().includes(q) ||
+    (h.tune_name || '').toLowerCase().includes(q) ||
+    (h.source_meaning || '').toLowerCase().includes(q)
+  );
+}
+
 function renderHymnList(hymns) {
   const container = document.getElementById('hymn-list-container');
   document.getElementById('catalog-count').textContent = `${hymns.length} Tracks`;
@@ -215,6 +227,7 @@ function renderHymnList(hymns) {
           <span class="badge" style="margin-right: 6px;">${numTag}</span>
           <span style="font-weight: 500;">${h.title}</span>
           <div class="subtitle">Disc ${h.disc_number}, Track ${h.track_number} • ${h.liturgical_season}</div>
+          <div class="subtitle">🎵 Tune: ${h.tune_name || 'Unknown'} | 📜 Source: ${h.source_meaning || 'Unknown'}</div>
         </div>
       </div>
       <button class="btn btn-primary" onclick="playCatalogHymn(${h.id})">▶ Play</button>
@@ -911,11 +924,7 @@ function searchModalCatalog() {
   if (!container) return;
   container.innerHTML = '';
 
-  const filtered = currentHymns.filter(h => {
-    return (h.title || '').toLowerCase().includes(query) ||
-           (h.hymn_number || '').toString().includes(query) ||
-           (h.liturgical_season || '').toLowerCase().includes(query);
-  }).slice(0, 50);
+  const filtered = filterHymns(currentHymns, query).slice(0, 50);
 
   if (filtered.length === 0) {
     container.innerHTML = '<div style="color: #94a3b8; font-size: 0.75rem; padding: 4px;">No matching audio tracks found.</div>';
