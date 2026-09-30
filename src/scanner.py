@@ -116,7 +116,7 @@ def parse_hymn_file(filepath):
     elif ' - ' in raw_title and raw_title.split(' - ')[0].isdigit():
         hymn_number = int(raw_title.split(' - ')[0])
         title = ' - '.join(raw_title.split(' - ')[1:])
-        
+
     season = "General"
     if hymn_number:
         if 331 <= hymn_number <= 357:

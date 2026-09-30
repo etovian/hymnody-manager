@@ -219,14 +219,21 @@ function renderHymnList(hymns) {
     item.setAttribute('draggable', 'true');
     item.ondragstart = (e) => onHymnDragStart(e, h.id);
 
-    const numTag = h.hymn_number ? `LSB ${escapeHtml(h.hymn_number)}` : `Disc ${escapeHtml(h.disc_number)}`;
+    const hasDiscTrack = Boolean(h.disc_number && h.track_number && Number(h.disc_number) > 0 && Number(h.track_number) > 0);
+    const numTag = h.hymn_number
+      ? `LSB ${escapeHtml(h.hymn_number)}`
+      : (hasDiscTrack ? `Disc ${escapeHtml(h.disc_number)}` : `Liturgy`);
+    const discTrackSubtitle = hasDiscTrack
+      ? `Disc ${escapeHtml(h.disc_number)}, Track ${escapeHtml(h.track_number)} • ${escapeHtml(h.liturgical_season || 'General')}`
+      : `${escapeHtml(h.liturgical_season || 'General')}`;
+
     item.innerHTML = `
       <div style="display: flex; align-items: center; gap: 8px;">
         <span class="drag-handle">⋮⋮</span>
         <div>
           <span class="badge" style="margin-right: 6px;">${numTag}</span>
           <span style="font-weight: 500;">${escapeHtml(h.title)}</span>
-          <div class="subtitle">Disc ${escapeHtml(h.disc_number)}, Track ${escapeHtml(h.track_number)} • ${escapeHtml(h.liturgical_season)}</div>
+          <div class="subtitle">${discTrackSubtitle}</div>
           <div class="subtitle">🎵 Tune: ${escapeHtml(h.tune_name || 'Unknown')} | 📜 Source: ${escapeHtml(h.source_meaning || 'Unknown')}</div>
         </div>
       </div>

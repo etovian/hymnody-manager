@@ -304,10 +304,10 @@ def save_hymns(hymns_list, db_path=DEFAULT_DB_PATH):
             target_id = h.get('id')
             existing_row = None
             if target_id:
-                cursor.execute("SELECT id, tune_id, source_code FROM hymns WHERE id = ?", (target_id,))
+                cursor.execute("SELECT id, title, tune_id, source_code FROM hymns WHERE id = ?", (target_id,))
                 existing_row = cursor.fetchone()
             elif h_num:
-                cursor.execute("SELECT id, tune_id, source_code FROM hymns WHERE hymn_number = ?", (h_num,))
+                cursor.execute("SELECT id, title, tune_id, source_code FROM hymns WHERE hymn_number = ?", (h_num,))
                 existing_row = cursor.fetchone()
                 if existing_row:
                     target_id = existing_row['id']
@@ -353,6 +353,8 @@ def save_hymns(hymns_list, db_path=DEFAULT_DB_PATH):
                 else:
                     cursor.execute("DELETE FROM hymns WHERE file_path = ?", (norm_path,))
 
+            catalog_title = h.get('title') or (existing_row['title'] if existing_row and existing_row['title'] else None) or (HYMN_CATALOG.get(h_num, {}).get('title') if h_num else None)
+
             cursor.execute("""
                 INSERT OR REPLACE INTO hymns 
                 (id, hymn_number, title, disc_number, track_number, album, artist, year, file_path, liturgical_season, tune_id, source_code)
@@ -360,7 +362,7 @@ def save_hymns(hymns_list, db_path=DEFAULT_DB_PATH):
             """, (
                 target_id,
                 h_num,
-                h.get('title'),
+                catalog_title,
                 disc_num,
                 track_num,
                 h.get('album', 'The Concordia Organist'),
@@ -382,7 +384,7 @@ def get_all_hymns(db_path=DEFAULT_DB_PATH):
             FROM hymns
             LEFT JOIN tunes ON hymns.tune_id = tunes.id
             LEFT JOIN sources ON hymns.source_code = sources.code
-            ORDER BY hymns.hymn_number ASC, hymns.disc_number ASC, hymns.track_number ASC
+            ORDER BY CASE WHEN hymns.hymn_number IS NOT NULL THEN 0 ELSE 1 END ASC, hymns.hymn_number ASC, hymns.disc_number ASC, hymns.track_number ASC
         """)
         rows = cursor.fetchall()
         return [dict(r) for r in rows]
@@ -439,7 +441,8 @@ def search_hymns(query=None, season=None, category_type=None, disc=None, db_path
             sql += " AND hymns.disc_number = ?"
             params.append(int(disc))
             
-        sql += f" ORDER BY {order_by_case}hymns.disc_number ASC, hymns.track_number ASC"
+        hymn_order = "CASE WHEN hymns.hymn_number IS NOT NULL THEN 0 ELSE 1 END ASC, hymns.hymn_number ASC, " if category_type == 'hymn' or not category_type else ""
+        sql += f" ORDER BY {order_by_case}{hymn_order}hymns.disc_number ASC, hymns.track_number ASC"
         params.extend(order_params)
         cursor.execute(sql, params)
         rows = cursor.fetchall()
