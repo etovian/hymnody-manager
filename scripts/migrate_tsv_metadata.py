@@ -94,53 +94,74 @@ def generate_seed_data(sources, tunes, catalog, target_path="src/lsb_seed_data.p
         f.write("\n".join(lines))
 
 
-def main():
+def main(sys_args=None, base_dir=None):
     parser = argparse.ArgumentParser(description="Migrate LSB TSV metadata to seed data and database.")
     parser.add_argument("--auto-confirm", "-y", action="store_true", help="Execute non-interactively without prompt.")
     parser.add_argument("--cleanup", "-c", action="store_true", help="Remove TSV files after migration.")
     parser.add_argument("--no-cleanup", action="store_true", help="Skip removing TSV files after migration.")
     parser.add_argument("--db-path", default="hymnody.db", help="Path to SQLite database (default: hymnody.db).")
-    args = parser.parse_args()
+    args = parser.parse_args(sys_args)
 
-    base_dir = Path(__file__).resolve().parent.parent
+    if base_dir is None:
+        base_dir = BASE_DIR
+    else:
+        base_dir = Path(base_dir)
+
     source_tsv = base_dir / "LSB Hymn Tracking (blank) - source.tsv"
     master_tsv = base_dir / "LSB Hymn Tracking (blank) - Master List.tsv"
     target_seed = base_dir / "src" / "lsb_seed_data.py"
 
+    tsv_parsed = False
     if source_tsv.exists() and master_tsv.exists():
-        sources, tunes, catalog = parse_tsvs(str(source_tsv), str(master_tsv))
-        generate_seed_data(sources, tunes, catalog, target_path=str(target_seed))
-        print(
-            f"Generated LSB seed data at {target_seed} with {len(sources)} sources, "
-            f"{len(tunes)} tunes, and {len(catalog)} catalog entries."
-        )
+        try:
+            sources, tunes, catalog = parse_tsvs(str(source_tsv), str(master_tsv))
+            generate_seed_data(sources, tunes, catalog, target_path=str(target_seed))
+            print(
+                f"Generated LSB seed data at {target_seed} with {len(sources)} sources, "
+                f"{len(tunes)} tunes, and {len(catalog)} catalog entries."
+            )
+            tsv_parsed = True
+        except Exception as e:
+            print(f"Error parsing TSVs or generating seed data: {e}", file=sys.stderr)
+            tsv_parsed = False
     else:
         print("TSV source files not found; skipping TSV parsing and using existing seed data.")
 
     # Refresh seed module if loaded
     if "src.lsb_seed_data" in sys.modules:
-        importlib.reload(sys.modules["src.lsb_seed_data"])
+        try:
+            importlib.reload(sys.modules["src.lsb_seed_data"])
+        except Exception:
+            pass
 
     # Perform DB initialization and migration
     from src.database import init_db
-    db_file = base_dir / args.db_path
+    db_path_obj = Path(args.db_path)
+    db_file = db_path_obj if db_path_obj.is_absolute() else base_dir / db_path_obj
     init_db(str(db_file))
     print(f"Migrated database schema and seed data at {db_file}.")
 
     # TSV cleanup
-    should_cleanup = (args.cleanup or args.auto_confirm or not args.no_cleanup)
-    if should_cleanup:
-        removed = []
-        if source_tsv.exists():
-            source_tsv.unlink()
-            removed.append(source_tsv.name)
-        if master_tsv.exists():
-            master_tsv.unlink()
-            removed.append(master_tsv.name)
-        if removed:
-            print(f"Cleaned up TSV files: {', '.join(removed)}")
+    if tsv_parsed:
+        if args.no_cleanup:
+            should_cleanup = False
+        elif args.auto_confirm or args.cleanup:
+            should_cleanup = True
+        else:
+            resp = input("Delete original .tsv files? (y/n): ").strip().lower()
+            should_cleanup = resp in ("y", "yes")
+
+        if should_cleanup:
+            removed = []
+            if source_tsv.exists():
+                source_tsv.unlink()
+                removed.append(source_tsv.name)
+            if master_tsv.exists():
+                master_tsv.unlink()
+                removed.append(master_tsv.name)
+            if removed:
+                print(f"Cleaned up TSV files: {', '.join(removed)}")
 
 
 if __name__ == "__main__":
     main()
-
