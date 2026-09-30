@@ -72,3 +72,37 @@ def test_parse_hymn_file_office_settings_and_sacramental_ranges():
     meta_pt = parse_hymn_file(os.path.join(base_dir, '31-76 PT - Tone A.m4a'))
     assert meta_pt['liturgical_season'] == "Psalm Tones"
 
+def test_scan_associates_audio_with_catalog(tmp_path):
+    from src.database import init_db, save_hymns, get_db_connection, normalize_path
+
+    db_path = str(tmp_path / "test_hymnody.db")
+    init_db(db_path)
+
+    with get_db_connection(db_path) as conn:
+        row = conn.cursor().execute("SELECT * FROM hymns WHERE hymn_number = 331").fetchone()
+        assert row is not None
+        assert row["file_path"] is None
+        initial_tune_id = row["tune_id"]
+        initial_source_code = "CUSTOM_SRC"
+        conn.cursor().execute("UPDATE hymns SET source_code = ? WHERE hymn_number = 331", (initial_source_code,))
+        conn.commit()
+
+    dummy_file = tmp_path / "1-01 331 - The advent of our King.m4a"
+    dummy_file.write_bytes(b"dummy audio content")
+
+    results = scan_hymns_directory(str(tmp_path))
+    assert len(results) == 1
+    save_hymns(results, db_path=db_path)
+
+    with get_db_connection(db_path) as conn:
+        rows = conn.cursor().execute("SELECT * FROM hymns WHERE hymn_number = 331").fetchall()
+        assert len(rows) == 1
+        hymn = dict(rows[0])
+        assert hymn["file_path"] == normalize_path(str(dummy_file))
+        assert hymn["disc_number"] == 1
+        assert hymn["track_number"] == 1
+        assert hymn["tune_id"] == initial_tune_id
+        assert hymn["source_code"] == initial_source_code
+
+
+

@@ -299,6 +299,25 @@ def save_hymns(hymns_list, db_path=DEFAULT_DB_PATH):
             
             tune_id = h.get('tune_id')
             source_code = h.get('source_code')
+
+            # Determine target_id: preserve explicitly passed 'id' or existing catalog ID matching hymn_number
+            target_id = h.get('id')
+            existing_row = None
+            if target_id:
+                cursor.execute("SELECT id, tune_id, source_code FROM hymns WHERE id = ?", (target_id,))
+                existing_row = cursor.fetchone()
+            elif h_num:
+                cursor.execute("SELECT id, tune_id, source_code FROM hymns WHERE hymn_number = ?", (h_num,))
+                existing_row = cursor.fetchone()
+                if existing_row:
+                    target_id = existing_row['id']
+
+            if existing_row:
+                if tune_id is None:
+                    tune_id = existing_row['tune_id']
+                if source_code is None:
+                    source_code = existing_row['source_code']
+
             if (tune_id is None or source_code is None) and h_num and h_num in HYMN_CATALOG:
                 cat_entry = HYMN_CATALOG[h_num]
                 if source_code is None:
@@ -326,14 +345,6 @@ def save_hymns(hymns_list, db_path=DEFAULT_DB_PATH):
                     for ex in existing:
                         if ex['file_path'] and re.search(r' \d+\.m4a$', ex['file_path'], re.IGNORECASE):
                             cursor.execute("DELETE FROM hymns WHERE id = ?", (ex['id'],))
-
-            # Determine target_id: preserve explicitly passed 'id' or existing placeholder ID
-            target_id = h.get('id')
-            if not target_id and h_num:
-                cursor.execute("SELECT id FROM hymns WHERE hymn_number = ? AND (file_path IS NULL OR file_path = '')", (h_num,))
-                ph = cursor.fetchone()
-                if ph:
-                    target_id = ph['id']
 
             # Check if norm_path is already assigned to a DIFFERENT row id
             if norm_path:
