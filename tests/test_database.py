@@ -1,7 +1,7 @@
 import os
 import sqlite3
 import pytest
-from src.database import init_db, save_hymns, search_hymns, get_hymn_by_id, get_db_connection, normalize_path
+from src.database import init_db, save_hymns, search_hymns, get_hymn_by_id, get_all_hymns, get_db_connection, normalize_path
 from src.config import DEFAULT_MUSIC_DIR
 
 
@@ -39,7 +39,8 @@ def test_db_init_and_hymns_crud(tmp_path):
     
     # Test search by title
     results = search_hymns(query="advent", db_path=db_path)
-    assert len(results) == 2
+    scanned = [r for r in results if r.get('file_path')]
+    assert len(scanned) == 2
     
     # Test search by number
     num_results = search_hymns(query="331", db_path=db_path)
@@ -145,8 +146,9 @@ def test_search_hymns_by_category_type_and_aliases(tmp_path):
 
     # Test category_type = 'hymn'
     hymns = search_hymns(category_type='hymn', db_path=db_path)
-    assert len(hymns) == 1
-    assert hymns[0]['hymn_number'] == 331
+    scanned_hymns = [h for h in hymns if h.get('file_path')]
+    assert len(scanned_hymns) == 1
+    assert scanned_hymns[0]['hymn_number'] == 331
 
     # Test category_type = 'liturgy'
     liturgies = search_hymns(category_type='liturgy', db_path=db_path)
@@ -201,10 +203,10 @@ def test_path_normalization_and_deduplication(tmp_path):
         )
         conn.commit()
 
-    # Verify 2 rows exist in hymns before deduplication
+    # Verify 2 rows exist for hymn 100 in hymns before deduplication
     with get_db_connection(db_path) as conn:
         cursor = conn.cursor()
-        cursor.execute("SELECT COUNT(*) FROM hymns")
+        cursor.execute("SELECT COUNT(*) FROM hymns WHERE hymn_number = 100")
         assert cursor.fetchone()[0] == 2
 
     # Trigger init_db / deduplication migration
@@ -213,7 +215,7 @@ def test_path_normalization_and_deduplication(tmp_path):
     # Verify deduplication, path normalization, and foreign key reference preservation
     with get_db_connection(db_path) as conn:
         cursor = conn.cursor()
-        cursor.execute("SELECT id, file_path FROM hymns")
+        cursor.execute("SELECT id, file_path FROM hymns WHERE hymn_number = 100")
         rows = cursor.fetchall()
         assert len(rows) == 1
         assert rows[0]['id'] == new_hymn_id
@@ -296,7 +298,7 @@ def test_init_db_repairs_orphaned_service_item_hymn_ids(tmp_path):
     
     with get_db_connection(db_path) as conn:
         cursor = conn.cursor()
-        real_hymn_id = cursor.execute("SELECT id FROM hymns LIMIT 1").fetchone()['id']
+        real_hymn_id = cursor.execute("SELECT id FROM hymns WHERE hymn_number = 331").fetchone()['id']
         cursor.execute("INSERT INTO services (service_date, title) VALUES ('2026-01-01', 'Test Service')")
         s_id = cursor.lastrowid
         # Insert item with non-existent hymn_id 999999 but matching file_path
@@ -379,3 +381,24 @@ def test_normalize_path_dedups_mixed_slash_windows_variants():
 def test_normalize_path_handles_empty_and_none():
     assert normalize_path("") == ""
     assert normalize_path(None) == ""
+
+
+def test_init_db_seeds_sources_and_tunes(tmp_path):
+    db_path = str(tmp_path / "test_hymnody.db")
+    init_db(db_path)
+    
+    with get_db_connection(db_path) as conn:
+        sources = conn.execute("SELECT * FROM sources WHERE code = 'Lu'").fetchone()
+        assert sources is not None
+        assert sources['meaning'] == 'Luther'
+        
+        tunes = conn.execute("SELECT * FROM tunes WHERE name = 'St. Thomas'").fetchone()
+        assert tunes is not None
+
+        hymns = get_all_hymns(db_path)
+        assert len(hymns) > 0
+        h331 = next((h for h in hymns if h.get('hymn_number') == 331), None)
+        assert h331 is not None
+        assert h331.get('tune_name') == "St. Thomas"
+        assert h331.get('source_meaning') == "Roman Catholic hymns to 1900"
+

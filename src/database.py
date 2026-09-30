@@ -36,19 +36,78 @@ def init_db(db_path=DEFAULT_DB_PATH):
     with get_db_connection(db_path) as conn:
         cursor = conn.cursor()
         cursor.execute("""
+            CREATE TABLE IF NOT EXISTS sources (
+                code TEXT PRIMARY KEY,
+                meaning TEXT NOT NULL
+            );
+        """)
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS tunes (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL UNIQUE
+            );
+        """)
+        cursor.execute("""
             CREATE TABLE IF NOT EXISTS hymns (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 hymn_number INTEGER,
                 title TEXT NOT NULL,
-                disc_number INTEGER NOT NULL,
-                track_number INTEGER NOT NULL,
+                disc_number INTEGER,
+                track_number INTEGER,
                 album TEXT,
                 artist TEXT,
                 year INTEGER,
-                file_path TEXT NOT NULL UNIQUE,
-                liturgical_season TEXT
+                file_path TEXT UNIQUE,
+                liturgical_season TEXT,
+                tune_id INTEGER,
+                source_code TEXT,
+                FOREIGN KEY (tune_id) REFERENCES tunes(id),
+                FOREIGN KEY (source_code) REFERENCES sources(code)
             );
         """)
+
+        # Migration check for existing DBs where hymns.file_path may be NOT NULL or missing tune_id/source_code
+        cursor.execute("PRAGMA table_info(hymns)")
+        hymn_cols_info = cursor.fetchall()
+        hymn_col_names = [col['name'] for col in hymn_cols_info]
+        file_path_info = next((col for col in hymn_cols_info if col['name'] == 'file_path'), None)
+        
+        if file_path_info and file_path_info['notnull'] == 1:
+            cursor.execute("PRAGMA foreign_keys=OFF")
+            cursor.execute("""
+                CREATE TABLE hymns_new (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    hymn_number INTEGER,
+                    title TEXT NOT NULL,
+                    disc_number INTEGER,
+                    track_number INTEGER,
+                    album TEXT,
+                    artist TEXT,
+                    year INTEGER,
+                    file_path TEXT UNIQUE,
+                    liturgical_season TEXT,
+                    tune_id INTEGER,
+                    source_code TEXT,
+                    FOREIGN KEY (tune_id) REFERENCES tunes(id),
+                    FOREIGN KEY (source_code) REFERENCES sources(code)
+                );
+            """)
+            cursor.execute("""
+                INSERT INTO hymns_new (id, hymn_number, title, disc_number, track_number, album, artist, year, file_path, liturgical_season)
+                SELECT id, hymn_number, title, disc_number, track_number, album, artist, year, file_path, liturgical_season FROM hymns
+            """)
+            cursor.execute("DROP TABLE hymns")
+            cursor.execute("ALTER TABLE hymns_new RENAME TO hymns")
+            cursor.execute("PRAGMA foreign_keys=ON")
+            cursor.execute("PRAGMA table_info(hymns)")
+            hymn_cols_info = cursor.fetchall()
+            hymn_col_names = [col['name'] for col in hymn_cols_info]
+
+        if 'tune_id' not in hymn_col_names:
+            cursor.execute("ALTER TABLE hymns ADD COLUMN tune_id INTEGER")
+        if 'source_code' not in hymn_col_names:
+            cursor.execute("ALTER TABLE hymns ADD COLUMN source_code TEXT")
+
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS services (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -62,7 +121,6 @@ def init_db(db_path=DEFAULT_DB_PATH):
             );
         """)
         
-        # Check if liturgical_day column exists (migration for existing DBs)
         cursor.execute("PRAGMA table_info(services)")
         cols = [col['name'] for col in cursor.fetchall()]
         if 'liturgical_day' not in cols:
@@ -110,6 +168,48 @@ def init_db(db_path=DEFAULT_DB_PATH):
                 FOREIGN KEY (template_id) REFERENCES service_templates(id) ON DELETE CASCADE
             );
         """)
+
+        # Seed sources, tunes, and catalog placeholder rows from src.lsb_seed_data
+        from src.lsb_seed_data import SOURCES, TUNES, HYMN_CATALOG
+
+        for code, meaning in SOURCES.items():
+            cursor.execute(
+                "INSERT INTO sources (code, meaning) VALUES (?, ?) ON CONFLICT(code) DO UPDATE SET meaning = excluded.meaning",
+                (code, meaning)
+            )
+
+        for tune_name in TUNES:
+            cursor.execute(
+                "INSERT INTO tunes (name) VALUES (?) ON CONFLICT(name) DO NOTHING",
+                (tune_name,)
+            )
+
+        cursor.execute("SELECT id, name FROM tunes")
+        tune_map = {row['name']: row['id'] for row in cursor.fetchall()}
+
+        for hymn_num, entry in HYMN_CATALOG.items():
+            t_name = entry.get('tune')
+            t_id = tune_map.get(t_name)
+            s_code = entry.get('source')
+            title = entry.get('title')
+            season = entry.get('section')
+            
+            cursor.execute("SELECT id FROM hymns WHERE hymn_number = ?", (hymn_num,))
+            existing = cursor.fetchone()
+            if existing:
+                cursor.execute("""
+                    UPDATE hymns
+                    SET tune_id = ?,
+                        source_code = ?,
+                        liturgical_season = ?
+                    WHERE hymn_number = ?
+                """, (t_id, s_code, season, hymn_num))
+            else:
+                cursor.execute("""
+                    INSERT INTO hymns (hymn_number, title, liturgical_season, tune_id, source_code)
+                    VALUES (?, ?, ?, ?, ?)
+                """, (hymn_num, title, season, t_id, s_code))
+
         # Deduplicate hymns:
         # For explicit tracks (disc_number > 0 and track_number > 0), deduplicate by (disc_number, track_number),
         # preferring canonical (non-suffixed) file paths over ' 1.m4a' suffixed ones.
@@ -123,7 +223,7 @@ def init_db(db_path=DEFAULT_DB_PATH):
                 FROM hymns current_hymn
                 JOIN hymns target ON (
                     (current_hymn.disc_number > 0 AND current_hymn.track_number > 0 AND current_hymn.disc_number = target.disc_number AND current_hymn.track_number = target.track_number)
-                    OR (REPLACE(LOWER(current_hymn.file_path), '/', '\\') = REPLACE(LOWER(target.file_path), '/', '\\'))
+                    OR (current_hymn.file_path IS NOT NULL AND target.file_path IS NOT NULL AND REPLACE(LOWER(current_hymn.file_path), '/', '\\') = REPLACE(LOWER(target.file_path), '/', '\\'))
                 )
                 WHERE current_hymn.id = service_items.hymn_id
                 ORDER BY 
@@ -157,9 +257,10 @@ def init_db(db_path=DEFAULT_DB_PATH):
                                ORDER BY id DESC
                            ) as rn
                     FROM hymns
-                    WHERE disc_number <= 0 OR track_number <= 0
+                    WHERE (disc_number <= 0 OR track_number <= 0 OR disc_number IS NULL OR track_number IS NULL)
+                      AND file_path IS NOT NULL
                 ) WHERE rn = 1
-            );
+            ) AND file_path IS NOT NULL;
         """)
 
         # 3. Repair any service_items referencing deleted/orphaned hymn_ids by re-linking via file_path
@@ -176,7 +277,7 @@ def init_db(db_path=DEFAULT_DB_PATH):
         """)
 
         # 4. Normalize surviving file_path values to standard format
-        cursor.execute("SELECT id, file_path FROM hymns")
+        cursor.execute("SELECT id, file_path FROM hymns WHERE file_path IS NOT NULL")
         for r in cursor.fetchall():
             norm = normalize_path(r['file_path'])
             if norm != r['file_path']:
@@ -184,15 +285,29 @@ def init_db(db_path=DEFAULT_DB_PATH):
         conn.commit()
 
 def save_hymns(hymns_list, db_path=DEFAULT_DB_PATH):
+    from src.lsb_seed_data import HYMN_CATALOG
     with get_db_connection(db_path) as conn:
         cursor = conn.cursor()
+        cursor.execute("SELECT id, name FROM tunes")
+        tune_map = {row['name']: row['id'] for row in cursor.fetchall()}
+
         for h in hymns_list:
-            norm_path = normalize_path(h.get('file_path'))
+            norm_path = normalize_path(h.get('file_path')) if h.get('file_path') else None
             disc_num = h.get('disc_number', 1)
             track_num = h.get('track_number', 1)
+            h_num = h.get('hymn_number')
             
+            tune_id = h.get('tune_id')
+            source_code = h.get('source_code')
+            if (tune_id is None or source_code is None) and h_num and h_num in HYMN_CATALOG:
+                cat_entry = HYMN_CATALOG[h_num]
+                if source_code is None:
+                    source_code = cat_entry.get('source')
+                if tune_id is None and cat_entry.get('tune'):
+                    tune_id = tune_map.get(cat_entry.get('tune'))
+
             # Check if (disc_number, track_number) already exists under a canonical (non-suffixed) file_path
-            if disc_num is not None and track_num is not None and disc_num > 0 and track_num > 0:
+            if norm_path and disc_num is not None and track_num is not None and disc_num > 0 and track_num > 0:
                 existing = cursor.execute(
                     "SELECT id, file_path FROM hymns WHERE disc_number = ? AND track_number = ?", 
                     (disc_num, track_num)
@@ -202,22 +317,38 @@ def save_hymns(hymns_list, db_path=DEFAULT_DB_PATH):
                 
                 if is_candidate_suffixed:
                     has_canonical_existing = any(
-                        not re.search(r' \d+\.m4a$', ex['file_path'], re.IGNORECASE)
+                        ex['file_path'] and not re.search(r' \d+\.m4a$', ex['file_path'], re.IGNORECASE)
                         for ex in existing
                     )
                     if has_canonical_existing:
                         continue
                 else:
                     for ex in existing:
-                        if re.search(r' \d+\.m4a$', ex['file_path'], re.IGNORECASE):
+                        if ex['file_path'] and re.search(r' \d+\.m4a$', ex['file_path'], re.IGNORECASE):
                             cursor.execute("DELETE FROM hymns WHERE id = ?", (ex['id'],))
+
+            # Determine target_id: preserve explicitly passed 'id' or existing placeholder ID
+            target_id = h.get('id')
+            if not target_id and h_num:
+                cursor.execute("SELECT id FROM hymns WHERE hymn_number = ? AND (file_path IS NULL OR file_path = '')", (h_num,))
+                ph = cursor.fetchone()
+                if ph:
+                    target_id = ph['id']
+
+            # Check if norm_path is already assigned to a DIFFERENT row id
+            if norm_path:
+                if target_id:
+                    cursor.execute("DELETE FROM hymns WHERE file_path = ? AND id != ?", (norm_path, target_id))
+                else:
+                    cursor.execute("DELETE FROM hymns WHERE file_path = ?", (norm_path,))
 
             cursor.execute("""
                 INSERT OR REPLACE INTO hymns 
-                (hymn_number, title, disc_number, track_number, album, artist, year, file_path, liturgical_season)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                (id, hymn_number, title, disc_number, track_number, album, artist, year, file_path, liturgical_season, tune_id, source_code)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """, (
-                h.get('hymn_number'),
+                target_id,
+                h_num,
                 h.get('title'),
                 disc_num,
                 track_num,
@@ -225,57 +356,79 @@ def save_hymns(hymns_list, db_path=DEFAULT_DB_PATH):
                 h.get('artist', 'Concordia Publishing House'),
                 h.get('year', 2009),
                 norm_path,
-                h.get('liturgical_season', 'General')
+                h.get('liturgical_season', 'General'),
+                tune_id,
+                source_code
             ))
         conn.commit()
+
+
+def get_all_hymns(db_path=DEFAULT_DB_PATH):
+    with get_db_connection(db_path) as conn:
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT hymns.*, tunes.name AS tune_name, sources.meaning AS source_meaning
+            FROM hymns
+            LEFT JOIN tunes ON hymns.tune_id = tunes.id
+            LEFT JOIN sources ON hymns.source_code = sources.code
+            ORDER BY hymns.hymn_number ASC, hymns.disc_number ASC, hymns.track_number ASC
+        """)
+        rows = cursor.fetchall()
+        return [dict(r) for r in rows]
 
 
 def search_hymns(query=None, season=None, category_type=None, disc=None, db_path=DEFAULT_DB_PATH):
     with get_db_connection(db_path) as conn:
         cursor = conn.cursor()
-        sql = "SELECT * FROM hymns WHERE 1=1"
+        sql = """
+            SELECT hymns.*, tunes.name AS tune_name, sources.meaning AS source_meaning
+            FROM hymns
+            LEFT JOIN tunes ON hymns.tune_id = tunes.id
+            LEFT JOIN sources ON hymns.source_code = sources.code
+            WHERE 1=1
+        """
         params = []
         order_by_case = ""
         order_params = []
         
         if category_type == 'hymn':
-            sql += " AND hymn_number IS NOT NULL"
+            sql += " AND hymns.hymn_number IS NOT NULL"
         elif category_type == 'liturgy':
-            sql += " AND hymn_number IS NULL"
+            sql += " AND hymns.hymn_number IS NULL"
 
         if query:
             query_str = str(query).strip()
             q_lower = query_str.lower()
             if query_str.isdigit():
-                sql += " AND (hymn_number = ? OR title LIKE ? OR liturgical_season LIKE ?)"
+                sql += " AND (hymns.hymn_number = ? OR hymns.title LIKE ? OR hymns.liturgical_season LIKE ?)"
                 params.extend([int(query_str), f"%{query_str}%", f"%{query_str}%"])
-                order_by_case = "CASE WHEN hymn_number = ? THEN 0 WHEN LOWER(title) = LOWER(?) THEN 1 WHEN LOWER(title) LIKE LOWER(?) || '%' THEN 2 ELSE 3 END ASC, "
+                order_by_case = "CASE WHEN hymns.hymn_number = ? THEN 0 WHEN LOWER(hymns.title) = LOWER(?) THEN 1 WHEN LOWER(hymns.title) LIKE LOWER(?) || '%' THEN 2 ELSE 3 END ASC, "
                 order_params = [int(query_str), query_str, query_str]
             elif q_lower in ('matins', 'ma'):
-                sql += " AND (liturgical_season = 'Matins' OR title LIKE 'MA - %' OR title LIKE '%matins%')"
+                sql += " AND (hymns.liturgical_season = 'Matins' OR hymns.title LIKE 'MA - %' OR hymns.title LIKE '%matins%')"
             elif q_lower in ('vespers', 've'):
-                sql += " AND (liturgical_season = 'Vespers' OR title LIKE 'VE - %' OR title LIKE '%vespers%')"
+                sql += " AND (hymns.liturgical_season = 'Vespers' OR hymns.title LIKE 'VE - %' OR hymns.title LIKE '%vespers%')"
             elif q_lower in ('compline', 'co'):
-                sql += " AND (liturgical_season = 'Compline' OR title LIKE 'CO - %' OR title LIKE '%compline%')"
+                sql += " AND (hymns.liturgical_season = 'Compline' OR hymns.title LIKE 'CO - %' OR hymns.title LIKE '%compline%')"
             elif q_lower in ('morning prayer', 'mp'):
-                sql += " AND (liturgical_season = 'Morning Prayer' OR title LIKE 'MP - %' OR title LIKE '%morning prayer%')"
+                sql += " AND (hymns.liturgical_season = 'Morning Prayer' OR hymns.title LIKE 'MP - %' OR hymns.title LIKE '%morning prayer%')"
             elif q_lower in ('evening prayer', 'ep'):
-                sql += " AND (liturgical_season = 'Evening Prayer' OR title LIKE 'EP - %' OR title LIKE '%evening prayer%')"
+                sql += " AND (hymns.liturgical_season = 'Evening Prayer' OR hymns.title LIKE 'EP - %' OR hymns.title LIKE '%evening prayer%')"
             else:
-                sql += " AND (title LIKE ? OR liturgical_season LIKE ?)"
+                sql += " AND (hymns.title LIKE ? OR hymns.liturgical_season LIKE ?)"
                 params.extend([f"%{query_str}%", f"%{query_str}%"])
-                order_by_case = "CASE WHEN LOWER(title) = LOWER(?) THEN 0 WHEN LOWER(title) LIKE LOWER(?) || '%' THEN 1 ELSE 2 END ASC, "
+                order_by_case = "CASE WHEN LOWER(hymns.title) = LOWER(?) THEN 0 WHEN LOWER(hymns.title) LIKE LOWER(?) || '%' THEN 1 ELSE 2 END ASC, "
                 order_params = [query_str, query_str]
 
         if season:
-            sql += " AND liturgical_season = ?"
+            sql += " AND hymns.liturgical_season = ?"
             params.append(season)
             
         if disc:
-            sql += " AND disc_number = ?"
+            sql += " AND hymns.disc_number = ?"
             params.append(int(disc))
             
-        sql += f" ORDER BY {order_by_case}disc_number ASC, track_number ASC"
+        sql += f" ORDER BY {order_by_case}hymns.disc_number ASC, hymns.track_number ASC"
         params.extend(order_params)
         cursor.execute(sql, params)
         rows = cursor.fetchall()
@@ -285,6 +438,12 @@ def search_hymns(query=None, season=None, category_type=None, disc=None, db_path
 def get_hymn_by_id(hymn_id, db_path=DEFAULT_DB_PATH):
     with get_db_connection(db_path) as conn:
         cursor = conn.cursor()
-        cursor.execute("SELECT * FROM hymns WHERE id = ?", (hymn_id,))
+        cursor.execute("""
+            SELECT hymns.*, tunes.name AS tune_name, sources.meaning AS source_meaning
+            FROM hymns
+            LEFT JOIN tunes ON hymns.tune_id = tunes.id
+            LEFT JOIN sources ON hymns.source_code = sources.code
+            WHERE hymns.id = ?
+        """, (hymn_id,))
         row = cursor.fetchone()
         return dict(row) if row else None

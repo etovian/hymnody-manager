@@ -106,11 +106,12 @@ def test_alphabetized_filters_and_sorting(tmp_path):
     res = client.get("/api/hymns")
     assert res.status_code == 200
     hymns = res.json()
-    assert len(hymns) > 0
+    scanned_hymns = [h for h in hymns if h.get("disc_number") is not None and h.get("track_number") is not None]
+    assert len(scanned_hymns) > 0
 
-    for i in range(len(hymns) - 1):
-        h1 = hymns[i]
-        h2 = hymns[i + 1]
+    for i in range(len(scanned_hymns) - 1):
+        h1 = scanned_hymns[i]
+        h2 = scanned_hymns[i + 1]
         assert (h1["disc_number"], h1["track_number"]) <= (h2["disc_number"], h2["track_number"])
 
 

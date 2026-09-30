@@ -219,8 +219,9 @@ def test_api_get_hymns_category_type_filter(tmp_path):
     res_hymn = client.get("/api/hymns?category_type=hymn")
     assert res_hymn.status_code == 200
     hymns = res_hymn.json()
-    assert len(hymns) == 1
-    assert hymns[0]['title'] == 'The advent of our King'
+    scanned_hymns = [h for h in hymns if h.get('file_path')]
+    assert len(scanned_hymns) == 1
+    assert scanned_hymns[0]['title'] == 'The advent of our King'
     
     res_liturgy = client.get("/api/hymns?category_type=liturgy")
     assert res_liturgy.status_code == 200

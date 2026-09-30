@@ -384,7 +384,7 @@ def test_get_service_details_relinks_orphaned_hymn_ids(tmp_path):
 
     with get_db_connection(db_path) as conn:
         cursor = conn.cursor()
-        real_id = cursor.execute("SELECT id FROM hymns LIMIT 1").fetchone()['id']
+        real_id = cursor.execute("SELECT id FROM hymns WHERE hymn_number = 331").fetchone()['id']
         cursor.execute("INSERT INTO services (service_date, title) VALUES ('2026-01-01', 'Test Service')")
         s_id = cursor.lastrowid
         # Insert service item with stale/orphaned hymn_id 888888
