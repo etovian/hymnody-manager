@@ -1,7 +1,15 @@
 """TSV Metadata Migration & Seed Data Generator script for LSB Hymns."""
 
+import argparse
 import csv
+import importlib
 from pathlib import Path
+import sys
+
+# Ensure root directory is in sys.path
+BASE_DIR = Path(__file__).resolve().parent.parent
+if str(BASE_DIR) not in sys.path:
+    sys.path.insert(0, str(BASE_DIR))
 
 
 def parse_tsvs(source_tsv_path, master_tsv_path):
@@ -86,15 +94,53 @@ def generate_seed_data(sources, tunes, catalog, target_path="src/lsb_seed_data.p
         f.write("\n".join(lines))
 
 
-if __name__ == "__main__":
+def main():
+    parser = argparse.ArgumentParser(description="Migrate LSB TSV metadata to seed data and database.")
+    parser.add_argument("--auto-confirm", "-y", action="store_true", help="Execute non-interactively without prompt.")
+    parser.add_argument("--cleanup", "-c", action="store_true", help="Remove TSV files after migration.")
+    parser.add_argument("--no-cleanup", action="store_true", help="Skip removing TSV files after migration.")
+    parser.add_argument("--db-path", default="hymnody.db", help="Path to SQLite database (default: hymnody.db).")
+    args = parser.parse_args()
+
     base_dir = Path(__file__).resolve().parent.parent
     source_tsv = base_dir / "LSB Hymn Tracking (blank) - source.tsv"
     master_tsv = base_dir / "LSB Hymn Tracking (blank) - Master List.tsv"
     target_seed = base_dir / "src" / "lsb_seed_data.py"
 
-    sources, tunes, catalog = parse_tsvs(str(source_tsv), str(master_tsv))
-    generate_seed_data(sources, tunes, catalog, target_path=str(target_seed))
-    print(
-        f"Generated LSB seed data at {target_seed} with {len(sources)} sources, "
-        f"{len(tunes)} tunes, and {len(catalog)} catalog entries."
-    )
+    if source_tsv.exists() and master_tsv.exists():
+        sources, tunes, catalog = parse_tsvs(str(source_tsv), str(master_tsv))
+        generate_seed_data(sources, tunes, catalog, target_path=str(target_seed))
+        print(
+            f"Generated LSB seed data at {target_seed} with {len(sources)} sources, "
+            f"{len(tunes)} tunes, and {len(catalog)} catalog entries."
+        )
+    else:
+        print("TSV source files not found; skipping TSV parsing and using existing seed data.")
+
+    # Refresh seed module if loaded
+    if "src.lsb_seed_data" in sys.modules:
+        importlib.reload(sys.modules["src.lsb_seed_data"])
+
+    # Perform DB initialization and migration
+    from src.database import init_db
+    db_file = base_dir / args.db_path
+    init_db(str(db_file))
+    print(f"Migrated database schema and seed data at {db_file}.")
+
+    # TSV cleanup
+    should_cleanup = (args.cleanup or args.auto_confirm or not args.no_cleanup)
+    if should_cleanup:
+        removed = []
+        if source_tsv.exists():
+            source_tsv.unlink()
+            removed.append(source_tsv.name)
+        if master_tsv.exists():
+            master_tsv.unlink()
+            removed.append(master_tsv.name)
+        if removed:
+            print(f"Cleaned up TSV files: {', '.join(removed)}")
+
+
+if __name__ == "__main__":
+    main()
+
