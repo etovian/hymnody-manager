@@ -309,6 +309,23 @@ def test_mobile_mode_task3_code_quality():
     assert "headerEl.classList.toggle('mobile-mode-active', mode === 'mobile')" in js
 
 
+def test_mobile_view_service_dropdown_sync():
+    res = client.get("/static/app.js")
+    assert res.status_code == 200
+    js = res.text
+
+    # 1. switchView must NOT overwrite mobileService if it differs from currentService
+    assert "(!mobileService || mobileService.id !== currentService.id)" not in js, (
+        "switchView should not force mobileService to currentService when IDs differ, "
+        "as this desynchronizes the mobile dropdown from the rendered track list."
+    )
+
+    # 2. updateMobileServiceDropdown should preserve active mobileService if present in services list
+    assert "services.some(s => s.id === mobileService.id)" in js or "services.find(s => s.id === mobileService.id)" in js, (
+        "updateMobileServiceDropdown should check if mobileService is already selected and in services, "
+        "to avoid overwriting user selection with default date."
+    )
+
 
 def test_mobile_service_selection_api_e2e(tmp_path):
     db_path = str(tmp_path / "e2e_mobile_service.db")

@@ -134,7 +134,7 @@ function switchView(mode, isExplicitUserAction = true) {
     if (allSavedServices && allSavedServices.length > 0) {
       updateMobileServiceDropdown(allSavedServices);
     }
-    if (currentService && (!mobileService || mobileService.id !== currentService.id)) {
+    if (!mobileService && currentService) {
       mobileService = currentService;
     }
     updateMobileHeaderModeButton();
@@ -658,11 +658,16 @@ function selectDefaultMobileService(services) {
 function updateMobileServiceDropdown(services) {
   const mobileSelect = document.getElementById('mobile-service-select');
   if (!mobileSelect) return;
-  const defService = selectDefaultMobileService(services);
-  const selectedId = defService ? defService.id : null;
+  let selectedId = null;
+  if (mobileService && services && services.some(s => s.id === mobileService.id)) {
+    selectedId = mobileService.id;
+  } else {
+    const defService = selectDefaultMobileService(services);
+    selectedId = defService ? defService.id : null;
+  }
   mobileSelect.innerHTML = buildServiceOptionsHtml(services, selectedId);
   if (selectedId && (!mobileService || mobileService.id !== selectedId)) {
-    onMobileServiceSelectChanged(selectedId);
+    return onMobileServiceSelectChanged(selectedId);
   }
 }
 
@@ -672,7 +677,7 @@ async function fetchOrCreateService() {
     const res = await fetch('/api/services');
     const services = await res.json();
     allSavedServices = services;
-    updateMobileServiceDropdown(services);
+    await updateMobileServiceDropdown(services);
     if (services.length > 0) {
       await loadService(services[0].id);
     } else {
