@@ -841,8 +841,55 @@ body {
   box-shadow: 0 0 8px rgba(245, 158, 11, 0.4);
 }
 
-
-
-
-
-
+/* Hymn Details Modal Specifics */
+.hymn-history-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+  text-align: left;
+}
+.hymn-history-table th {
+  background: #1e293b;
+  color: #94a3b8;
+  font-weight: 600;
+  padding: 8px 12px;
+  border-bottom: 1px solid #334155;
+}
+.hymn-history-table td {
+  padding: 8px 12px;
+  border-bottom: 1px solid #1e293b;
+  color: #f1f5f9;
+}
+.hymn-history-table tr:last-child td {
+  border-bottom: none;
+}
+.sibling-hymn-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: #0f172a;
+  border: 1px solid #334155;
+  border-radius: 8px;
+  padding: 10px 14px;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+.sibling-hymn-card:hover {
+  background: #1e293b;
+  border-color: #475569;
+}
+.btn-icon-info {
+  background: #1e293b;
+  color: #94a3b8;
+  border: 1px solid #334155;
+  border-radius: 6px;
+  padding: 4px 8px;
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.btn-icon-info:hover {
+  background: #334155;
+  color: #38bdf8;
+  border-color: #38bdf8;
+}

@@ -5,7 +5,10 @@ from fastapi import FastAPI, HTTPException, Request, Response, Body
 from fastapi.responses import StreamingResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
 
-from src.database import init_db, save_hymns, search_hymns, get_hymn_by_id
+from src.database import (
+    init_db, save_hymns, search_hymns, get_hymn_by_id,
+    get_hymn_usage_history, get_hymns_sharing_tune
+)
 from src.scanner import scan_hymns_directory
 from src.services import (
     create_service_from_preset, get_service_details, update_service_items,
@@ -62,6 +65,11 @@ def api_get_hymn(hymn_id: int):
     hymn = get_hymn_by_id(hymn_id, db_path=db_path)
     if not hymn:
         raise HTTPException(status_code=404, detail="Hymn not found")
+    hymn["usage_history"] = get_hymn_usage_history(hymn_id, db_path=db_path)
+    hymn["same_tune_hymns"] = (
+        get_hymns_sharing_tune(hymn["tune_id"], exclude_hymn_id=hymn_id, db_path=db_path)
+        if hymn.get("tune_id") else []
+    )
     return hymn
 
 @app.get("/api/hymns/{hymn_id}/audio")

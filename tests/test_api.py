@@ -312,9 +312,18 @@ def test_get_hymns_returns_tune_and_source_and_filters(tmp_path):
     assert any(h.get('source_meaning') == "Luther" for h in source_results)
 
 
+def test_get_hymn_enriched_details():
+    # Fetch a hymn from existing catalog
+    res = client.get("/api/hymns")
+    assert res.status_code == 200
+    hymns = res.json()
+    assert len(hymns) > 0
+    test_hymn = hymns[0]
 
-
-
-
-
-
+    res = client.get(f"/api/hymns/{test_hymn['id']}")
+    assert res.status_code == 200
+    data = res.json()
+    assert "usage_history" in data
+    assert isinstance(data["usage_history"], list)
+    assert "same_tune_hymns" in data
+    assert isinstance(data["same_tune_hymns"], list)

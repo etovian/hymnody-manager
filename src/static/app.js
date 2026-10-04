@@ -228,33 +228,204 @@ function renderHymnList(hymns) {
       : `${escapeHtml(h.liturgical_season || 'General')}`;
 
     item.innerHTML = `
-      <div style="display: flex; align-items: center; gap: 8px;">
-        <span class="drag-handle">⋮⋮</span>
-        <div>
+      <div style="display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0;">
+        <span class="drag-handle" onclick="event.stopPropagation()">⋮⋮</span>
+        <div style="cursor: pointer; flex: 1; min-width: 0;" onclick="openHymnDetailsModal(${h.id})" title="View hymn details, usage history, and tune siblings">
           <span class="badge" style="margin-right: 6px;">${numTag}</span>
           <span style="font-weight: 500;">${escapeHtml(h.title)}</span>
           <div class="subtitle">${discTrackSubtitle}</div>
           <div class="subtitle">🎵 Tune: ${escapeHtml(h.tune_name || 'Unknown')} | 📜 Source: ${escapeHtml(h.source_meaning || 'Unknown')}</div>
         </div>
       </div>
-      <button class="btn btn-primary" onclick="playCatalogHymn(${h.id})">▶ Play</button>
+      <div style="display: flex; gap: 6px; align-items: center;">
+        <button class="btn-icon-info" onclick="event.stopPropagation(); openHymnDetailsModal(${h.id})" title="View hymn details, usage history, and tune siblings">ℹ️ Info</button>
+        <button class="btn btn-primary" onclick="event.stopPropagation(); playCatalogHymn(${h.id})">▶ Play</button>
+      </div>
     `;
     container.appendChild(item);
   });
 }
 
+const modalSiblingHymns = new Map();
+
 function playCatalogHymn(hymnId) {
-  const hymn = currentHymns.find(h => h.id === hymnId);
+  const hymn = currentHymns.find(h => h.id === hymnId) || modalSiblingHymns.get(hymnId);
   if (!hymn) return;
   activeTrackIndex = -1;
   const audioUrl = `/api/hymns/${hymnId}/audio`;
   audioPlayer.src = audioUrl;
-  audioPlayer.play();
+  audioPlayer.play().catch(e => {
+    console.error('Audio playback error:', e);
+  });
   isPlaying = true;
   const itemTitle = hymn.hymn_number ? `LSB ${hymn.hymn_number} - ${hymn.title}` : hymn.title;
   const slotName = hymn.liturgical_season ? `Hymnal Catalog • ${hymn.liturgical_season}` : `Hymnal Catalog`;
   updatePlayerUI({ item_title: itemTitle, slot_name: slotName });
 }
+
+async function openHymnDetailsModal(hymnId) {
+  const modal = document.getElementById('hymn-details-modal');
+  if (!modal) return;
+  modal.classList.remove('hidden');
+
+  const titleEl = document.getElementById('modal-hymn-title');
+  const subtitleEl = document.getElementById('modal-hymn-subtitle');
+  const metaBar = document.getElementById('modal-metadata-bar');
+  const historyHeading = document.getElementById('modal-history-heading');
+  const historyContainer = document.getElementById('modal-history-container');
+  const tuneHeading = document.getElementById('modal-tune-heading');
+  const siblingsContainer = document.getElementById('modal-siblings-container');
+
+  // Initial loading state
+  if (titleEl) titleEl.textContent = 'Loading Hymn Details...';
+  if (subtitleEl) subtitleEl.textContent = '';
+  if (metaBar) metaBar.innerHTML = '<span class="badge" style="background: #334155; color: #94a3b8;">Loading metadata...</span>';
+  if (historyHeading) historyHeading.textContent = 'Previous Service Usage';
+  if (historyContainer) {
+    historyContainer.innerHTML = '<p class="subtitle" style="padding: 16px; margin: 0; text-align: center; color: #94a3b8;">Loading history...</p>';
+  }
+  if (tuneHeading) tuneHeading.textContent = 'Other Hymns Sharing This Tune';
+  if (siblingsContainer) {
+    siblingsContainer.innerHTML = '<p class="subtitle" style="padding: 12px; margin: 0; text-align: center; color: #94a3b8;">Loading tune siblings...</p>';
+  }
+
+  try {
+    const res = await fetch(`/api/hymns/${hymnId}`);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const hymn = await res.json();
+
+    // 1. Populate title: [LSB ${hymn.hymn_number}] - ${hymn.title} (or ${hymn.title} if hymn_number is null)
+    const titleText = hymn.hymn_number
+      ? `[LSB ${hymn.hymn_number}] - ${hymn.title}`
+      : (hymn.title || '');
+    if (titleEl) titleEl.textContent = titleText;
+
+    // 2. Populate subtitle: Disc/Track information if present, or "No Audio Accompaniment"
+    const hasDiscTrack = Boolean(hymn.disc_number && hymn.track_number && Number(hymn.disc_number) > 0 && Number(hymn.track_number) > 0);
+    const subtitleText = hasDiscTrack
+      ? `Disc ${hymn.disc_number}, Track ${hymn.track_number}`
+      : 'No Audio Accompaniment';
+    if (subtitleEl) subtitleEl.textContent = subtitleText;
+
+    // 3. Populate metadata bar
+    if (metaBar) {
+      const audioBadgeText = hasDiscTrack
+        ? `Disc ${escapeHtml(hymn.disc_number)}, Track ${escapeHtml(hymn.track_number)}`
+        : 'No Audio Track';
+      const audioBadgeStyle = hasDiscTrack
+        ? 'background: #0284c7; color: white;'
+        : 'background: #475569; color: #cbd5e1;';
+
+      metaBar.innerHTML = `
+        <span class="badge" style="background: #334155; color: #f1f5f9;">🎵 Tune: ${escapeHtml(hymn.tune_name || 'None / Unknown')}</span>
+        <span class="badge" style="background: #1e3a8a; color: #93c5fd;">Liturgical Season: ${escapeHtml(hymn.liturgical_season || 'General')}</span>
+        <span class="badge" style="background: #312e81; color: #c7d2fe;">Source: ${escapeHtml(hymn.source_meaning || 'Unknown')}</span>
+        <span class="badge" style="${audioBadgeStyle}">${audioBadgeText}</span>
+      `;
+    }
+
+    // 4. Populate previous service usage history
+    const usageHistory = hymn.usage_history || [];
+    if (historyHeading) {
+      historyHeading.textContent = `Previous Service Usage (${usageHistory.length})`;
+    }
+    if (historyContainer) {
+      if (!usageHistory.length) {
+        historyContainer.innerHTML = '<p class="subtitle" style="padding: 16px; margin: 0; text-align: center; color: #94a3b8;">No previous service usage recorded for this hymn.</p>';
+      } else {
+        const rowsHtml = usageHistory.map(u => `
+          <tr>
+            <td>${escapeHtml(u.service_date || '-')}</td>
+            <td>${escapeHtml(u.liturgical_day || '-')}</td>
+            <td>${escapeHtml(u.setting_preset || '-')}</td>
+            <td>${escapeHtml(u.service_title || '-')}</td>
+            <td>${escapeHtml(u.slot_name || '-')}</td>
+          </tr>
+        `).join('');
+
+        historyContainer.innerHTML = `
+          <table class="hymn-history-table">
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>Liturgical Day</th>
+                <th>Setting</th>
+                <th>Service Title</th>
+                <th>Slot</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${rowsHtml}
+            </tbody>
+          </table>
+        `;
+      }
+    }
+
+    // 5. Populate sibling hymns sharing tune
+    const sameTuneHymns = hymn.same_tune_hymns || [];
+    if (tuneHeading) {
+      tuneHeading.textContent = hymn.tune_name
+        ? `Other Hymns Sharing Tune: ${hymn.tune_name} (${sameTuneHymns.length})`
+        : `Other Hymns Sharing This Tune (${sameTuneHymns.length})`;
+    }
+    if (siblingsContainer) {
+      if (!sameTuneHymns.length) {
+        siblingsContainer.innerHTML = '<p class="subtitle" style="padding: 12px; margin: 0; text-align: center; color: #94a3b8;">No other hymns in the catalog share this tune.</p>';
+      } else {
+        let siblingsHtml = '';
+        sameTuneHymns.forEach(s => {
+          modalSiblingHymns.set(s.id, s);
+          const hasAudio = Boolean(s.file_path || (s.disc_number && s.track_number));
+          const playBtn = hasAudio
+            ? `<button class="btn btn-primary btn-sm" onclick="event.stopPropagation(); playCatalogHymn(${s.id})">▶ Play</button>`
+            : `<button class="btn btn-secondary btn-sm" disabled style="opacity: 0.5; cursor: not-allowed;">No Audio</button>`;
+
+          const siblingTitle = s.hymn_number
+            ? `LSB ${escapeHtml(s.hymn_number)} - ${escapeHtml(s.title)} • ${escapeHtml(s.liturgical_season || 'General')}`
+            : `${escapeHtml(s.title)} • ${escapeHtml(s.liturgical_season || 'General')}`;
+
+          siblingsHtml += `
+            <div class="sibling-hymn-card" onclick="openHymnDetailsModal(${s.id})">
+              <div style="display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0; overflow: hidden;">
+                <span style="font-size: 1rem;">🎵</span>
+                <span style="font-weight: 500; font-size: 0.85rem; color: #f1f5f9; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${siblingTitle}</span>
+              </div>
+              <div>
+                ${playBtn}
+              </div>
+            </div>
+          `;
+        });
+        siblingsContainer.innerHTML = siblingsHtml;
+      }
+    }
+
+  } catch (err) {
+    console.error('Error fetching hymn details:', err);
+    if (titleEl) titleEl.textContent = 'Error Loading Hymn Details';
+    if (subtitleEl) subtitleEl.textContent = err.message || 'Could not retrieve hymn information.';
+    if (metaBar) metaBar.innerHTML = '';
+    if (historyContainer) historyContainer.innerHTML = '';
+    if (siblingsContainer) siblingsContainer.innerHTML = '';
+  }
+}
+
+function closeHymnDetailsModal() {
+  const modal = document.getElementById('hymn-details-modal');
+  if (modal) {
+    modal.classList.add('hidden');
+  }
+}
+
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' || e.key === 'Esc') {
+    const modal = document.getElementById('hymn-details-modal');
+    if (modal && !modal.classList.contains('hidden')) {
+      closeHymnDetailsModal();
+    }
+  }
+});
 
 function handleCatalogAddClick(hymnId) {
   if (activePlannerTab === 'templates' && selectedTemplateForEdit) {

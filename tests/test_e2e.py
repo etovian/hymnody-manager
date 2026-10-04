@@ -439,5 +439,204 @@ def test_hymnal_catalog_tune_and_source_ui_rendering_and_search_logic():
     assert "source_meaning" in js, "app.js should reference source_meaning for metadata rendering and search filtering"
 
 
+def test_hymn_details_modal_ui_and_js_logic():
+    # 1. Verify index.html modal accessibility and structure
+    res_html = client.get("/")
+    assert res_html.status_code == 200
+    html = res_html.text
 
+    assert 'id="hymn-details-modal"' in html
+    assert 'role="dialog"' in html
+    assert 'aria-modal="true"' in html
+    assert 'aria-labelledby="modal-hymn-title"' in html
+    assert 'aria-label="Close modal"' in html
+    assert 'id="modal-history-container"' in html
+    assert 'overflow-x: auto;' in html
+
+    # 2. Verify app.js modal functions and interactions
+    res_js = client.get("/static/app.js")
+    assert res_js.status_code == 200
+    js = res_js.text
+
+    assert "function openHymnDetailsModal(" in js, "openHymnDetailsModal should be defined"
+    assert "function closeHymnDetailsModal(" in js, "closeHymnDetailsModal should be defined"
+    assert "btn-icon-info" in js, "btn-icon-info button should be rendered in catalog list"
+    assert "openHymnDetailsModal(${h.id})" in js, "catalog list items and info buttons should invoke openHymnDetailsModal"
+    assert "openHymnDetailsModal(${s.id})" in js, "sibling hymn cards should navigate to sibling hymn details"
+    assert "/api/hymns/${hymnId}" in js, "modal should fetch enriched hymn details from API"
+    assert "hymn-history-table" in js, "modal should render hymn-history-table for usage history"
+    assert "sibling-hymn-card" in js, "modal should render sibling-hymn-card for tune siblings"
+    assert "No previous service usage recorded for this hymn." in js
+    assert "No other hymns in the catalog share this tune." in js
+    assert "Escape" in js, "Escape key listener should close hymn details modal"
+
+
+def test_hymn_details_modal_workflow_e2e(tmp_path):
+    db_path = str(tmp_path / "e2e_modal_workflow.db")
+    os.environ["HYMNODY_DB_PATH"] = db_path
+    init_db(db_path)
+
+    from src.database import get_db_connection, save_hymns
+
+    # Identify seeded tunes from init_db
+    with get_db_connection(db_path) as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT id FROM tunes WHERE name = 'St. Thomas'")
+        row = cursor.fetchone()
+        tune_st_thomas = row["id"] if row else 1
+
+        cursor.execute("SELECT id FROM tunes WHERE id != ? LIMIT 1", (tune_st_thomas,))
+        row_other = cursor.fetchone()
+        tune_other = row_other["id"] if row_other else 2
+
+    # Clear catalog hymns to control exact test fixtures
+    with get_db_connection(db_path) as conn:
+        conn.cursor().execute("DELETE FROM hymns")
+        conn.commit()
+
+    audio_file_h1 = tmp_path / "hymn_331.m4a"
+    audio_file_h1.write_bytes(b"AAC_AUDIO_DATA_FOR_HYMN_331" * 50)
+    audio_file_h2 = tmp_path / "hymn_500.m4a"
+    audio_file_h2.write_bytes(b"AAC_AUDIO_DATA_FOR_HYMN_500" * 50)
+    audio_file_h3 = tmp_path / "hymn_700.m4a"
+    audio_file_h3.write_bytes(b"AAC_AUDIO_DATA_FOR_HYMN_700" * 50)
+
+    # 2. Seed test hymns sharing a tune, and test hymns with distinct tunes
+    test_hymns = [
+        {
+            "id": 1001,
+            "hymn_number": 331,
+            "title": "The advent of our King",
+            "disc_number": 1,
+            "track_number": 1,
+            "file_path": str(audio_file_h1),
+            "liturgical_season": "Advent",
+            "tune_id": tune_st_thomas,
+            "source_code": "RC1900",
+        },
+        {
+            "id": 1002,
+            "hymn_number": 500,
+            "title": "Creator Spirit, by Whose Aid",
+            "disc_number": 1,
+            "track_number": 2,
+            "file_path": str(audio_file_h2),
+            "liturgical_season": "Pentecost",
+            "tune_id": tune_st_thomas,
+            "source_code": "RC",
+        },
+        {
+            "id": 1003,
+            "hymn_number": 700,
+            "title": "Love Divine, All Loves Excelling",
+            "disc_number": 2,
+            "track_number": 1,
+            "file_path": str(audio_file_h3),
+            "liturgical_season": "Praise",
+            "tune_id": tune_other,
+            "source_code": "Lu",
+        },
+    ]
+    save_hymns(test_hymns, db_path=db_path)
+
+    # 3. Seed test services and service items linking to the hymn
+    with get_db_connection(db_path) as conn:
+        cursor = conn.cursor()
+        # Older service (2026-11-29)
+        cursor.execute("""
+            INSERT INTO services (id, service_date, title, liturgical_day, setting_preset, liturgical_color)
+            VALUES (201, '2026-11-29', 'Advent Service 1', 'First Sunday in Advent', 'DS1', 'Blue')
+        """)
+        cursor.execute("""
+            INSERT INTO service_items (service_id, hymn_id, item_title, slot_name, sequence_order, file_path, is_hymn_slot)
+            VALUES (201, 1001, 'LSB 331 - The advent of our King', 'Hymn of Invocation', 1, ?, 1)
+        """, (str(audio_file_h1),))
+
+        # Newer service (2026-12-06)
+        cursor.execute("""
+            INSERT INTO services (id, service_date, title, liturgical_day, setting_preset, liturgical_color)
+            VALUES (202, '2026-12-06', 'Advent Service 2', 'Second Sunday in Advent', 'DS2', 'Blue')
+        """)
+        cursor.execute("""
+            INSERT INTO service_items (service_id, hymn_id, item_title, slot_name, sequence_order, file_path, is_hymn_slot)
+            VALUES (202, 1001, 'LSB 331 - The advent of our King', 'Hymn of the Day', 5, ?, 1)
+        """, (str(audio_file_h1),))
+        conn.commit()
+
+    # 4. Use FastAPI TestClient to fetch GET /api/hymns/{id}
+    res = client.get("/api/hymns/1001")
+    assert res.status_code == 200
+    hymn = res.json()
+
+    # Verify base metadata includes tune_name and source_meaning
+    assert hymn["id"] == 1001
+    assert hymn["hymn_number"] == 331
+    assert hymn["title"] == "The advent of our King"
+    assert hymn["tune_name"] == "St. Thomas"
+    assert hymn["source_meaning"] == "Roman Catholic hymns to 1900"
+
+    # Verify usage_history contains correct historical entries ordered by date descending
+    history = hymn.get("usage_history", [])
+    assert len(history) == 2
+
+    assert history[0]["service_date"] == "2026-12-06"
+    assert history[0]["liturgical_day"] == "Second Sunday in Advent"
+    assert history[0]["setting_preset"] == "DS2"
+    assert history[0]["service_title"] == "Advent Service 2"
+    assert history[0]["slot_name"] == "Hymn of the Day"
+
+    assert history[1]["service_date"] == "2026-11-29"
+    assert history[1]["liturgical_day"] == "First Sunday in Advent"
+    assert history[1]["setting_preset"] == "DS1"
+    assert history[1]["service_title"] == "Advent Service 1"
+    assert history[1]["slot_name"] == "Hymn of Invocation"
+
+    # Verify same_tune_hymns contains sibling hymns sharing tune_id and excludes parent hymn itself
+    siblings = hymn.get("same_tune_hymns", [])
+    assert len(siblings) == 1
+    assert siblings[0]["id"] == 1002
+    assert siblings[0]["hymn_number"] == 500
+    assert siblings[0]["title"] == "Creator Spirit, by Whose Aid"
+    assert siblings[0]["tune_name"] == "St. Thomas"
+    assert all(s["id"] != 1001 for s in siblings)
+    assert all(s["id"] != 1003 for s in siblings)
+
+    # Sibling hymn audio endpoint can be reached via range streaming
+    stream_res = client.get(f"/api/hymns/{siblings[0]['id']}/audio", headers={"Range": "bytes=0-100"})
+    assert stream_res.status_code in (200, 206)
+    if stream_res.status_code == 206:
+        assert "bytes 0-100/" in stream_res.headers.get("content-range", "")
+        assert len(stream_res.content) == 101
+
+    # 5. Verify index.html contains all modal element IDs, ARIA attributes, and .btn-icon-info buttons
+    index_res = client.get("/")
+    assert index_res.status_code == 200
+    html = index_res.text
+
+    modal_element_ids = [
+        "hymn-details-modal",
+        "modal-hymn-title",
+        "modal-hymn-subtitle",
+        "modal-metadata-bar",
+        "modal-history-heading",
+        "modal-history-container",
+        "modal-tune-heading",
+        "modal-siblings-container",
+    ]
+    for el_id in modal_element_ids:
+        assert f'id="{el_id}"' in html, f"Missing modal element ID: {el_id}"
+
+    assert 'role="dialog"' in html
+    assert 'aria-modal="true"' in html
+    assert 'aria-labelledby="modal-hymn-title"' in html
+    assert 'aria-label="Close modal"' in html
+
+    # Verify .btn-icon-info button rendering and styling
+    app_res = client.get("/static/app.js")
+    assert app_res.status_code == 200
+    assert "btn-icon-info" in app_res.text
+
+    css_res = client.get("/static/styles.css")
+    assert css_res.status_code == 200
+    assert ".btn-icon-info" in css_res.text
 

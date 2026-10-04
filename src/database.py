@@ -461,3 +461,49 @@ def get_hymn_by_id(hymn_id, db_path=DEFAULT_DB_PATH):
         """, (hymn_id,))
         row = cursor.fetchone()
         return dict(row) if row else None
+
+
+def get_hymn_usage_history(hymn_id, db_path=DEFAULT_DB_PATH):
+    with get_db_connection(db_path) as conn:
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT s.id AS service_id,
+                   s.service_date,
+                   s.title AS service_title,
+                   s.liturgical_day,
+                   s.setting_preset,
+                   si.slot_name,
+                   si.sequence_order
+            FROM service_items si
+            JOIN services s ON si.service_id = s.id
+            WHERE si.hymn_id = ?
+            ORDER BY s.service_date DESC, s.id DESC, si.sequence_order ASC
+        """, (hymn_id,))
+        return [dict(r) for r in cursor.fetchall()]
+
+
+def get_hymns_sharing_tune(tune_id, exclude_hymn_id=None, db_path=DEFAULT_DB_PATH):
+    if not tune_id:
+        return []
+    with get_db_connection(db_path) as conn:
+        cursor = conn.cursor()
+        sql = """
+            SELECT h.id, h.hymn_number, h.title, h.liturgical_season,
+                   h.disc_number, h.track_number, h.file_path,
+                   t.name AS tune_name, s.meaning AS source_meaning
+            FROM hymns h
+            LEFT JOIN tunes t ON h.tune_id = t.id
+            LEFT JOIN sources s ON h.source_code = s.code
+            WHERE h.tune_id = ?
+        """
+        params = [tune_id]
+        if exclude_hymn_id is not None:
+            sql += " AND h.id != ?"
+            params.append(exclude_hymn_id)
+        sql += """
+            ORDER BY CASE WHEN h.hymn_number IS NOT NULL THEN 0 ELSE 1 END ASC,
+                     h.hymn_number ASC, h.title ASC
+        """
+        cursor.execute(sql, params)
+        return [dict(r) for r in cursor.fetchall()]
+

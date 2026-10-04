@@ -402,3 +402,65 @@ def test_init_db_seeds_sources_and_tunes(tmp_path):
         assert h331.get('tune_name') == "St. Thomas"
         assert h331.get('source_meaning') == "Roman Catholic hymns to 1900"
 
+
+@pytest.fixture
+def test_db(tmp_path):
+    db_path = str(tmp_path / "test_hymnody.db")
+    init_db(db_path)
+    return db_path
+
+
+def test_get_hymn_usage_history_and_same_tune(test_db):
+    from src.database import (
+        save_hymns, get_hymn_usage_history, get_hymns_sharing_tune,
+        get_db_connection
+    )
+    # Clear seeded hymns for isolated tune test
+    with get_db_connection(test_db) as conn:
+        conn.cursor().execute("DELETE FROM hymns")
+        conn.commit()
+
+    # Setup test hymns with a shared tune
+    hymns = [
+        {"id": 901, "hymn_number": 901, "title": "Hymn One", "tune_id": 1},
+        {"id": 902, "hymn_number": 902, "title": "Hymn Two", "tune_id": 1},
+        {"id": 903, "hymn_number": 903, "title": "Hymn Three", "tune_id": 2},
+    ]
+    save_hymns(hymns, db_path=test_db)
+
+    # Insert mock services and service_items using Hymn One
+    with get_db_connection(test_db) as conn:
+        cursor = conn.cursor()
+        cursor.execute("""
+            INSERT INTO services (id, service_date, title, liturgical_day, setting_preset)
+            VALUES (101, '2026-04-05', 'Easter Day Service', 'The Resurrection of Our Lord', 'DS3')
+        """)
+        cursor.execute("""
+            INSERT INTO service_items (service_id, hymn_id, item_title, slot_name, sequence_order, file_path, is_hymn_slot)
+            VALUES (101, 901, 'Hymn One', 'Hymn of the Day', 6, 'mock.m4a', 1)
+        """)
+        cursor.execute("""
+            INSERT INTO services (id, service_date, title, liturgical_day, setting_preset)
+            VALUES (102, '2026-05-14', 'Ascension Service', 'The Ascension of Our Lord', 'DS1')
+        """)
+        cursor.execute("""
+            INSERT INTO service_items (service_id, hymn_id, item_title, slot_name, sequence_order, file_path, is_hymn_slot)
+            VALUES (102, 901, 'Hymn One', 'Closing Hymn', 13, 'mock.m4a', 1)
+        """)
+        conn.commit()
+
+    # Verify usage history
+    history = get_hymn_usage_history(901, db_path=test_db)
+    assert len(history) == 2
+    assert history[0]["service_date"] == "2026-05-14"
+    assert history[0]["setting_preset"] == "DS1"
+    assert history[0]["slot_name"] == "Closing Hymn"
+    assert history[1]["service_date"] == "2026-04-05"
+    assert history[1]["setting_preset"] == "DS3"
+
+    # Verify same-tune siblings (excluding self)
+    siblings = get_hymns_sharing_tune(1, exclude_hymn_id=901, db_path=test_db)
+    assert len(siblings) == 1
+    assert siblings[0]["id"] == 902
+    assert siblings[0]["title"] == "Hymn Two"
+
