@@ -1,8 +1,28 @@
 import sqlite3
 import os
 import re
+from src.config import get_max_printed_hymn_number
 
 DEFAULT_DB_PATH = "hymnody.db"
+
+
+def is_in_printed_hymnal(hymn_number, max_num=None) -> bool:
+    """Return True if hymn is in printed hymnal (or non-numbered liturgy), False if hymn_number > max_num."""
+    if hymn_number is None:
+        return True
+    if max_num is None:
+        max_num = get_max_printed_hymn_number()
+    try:
+        return int(hymn_number) <= max_num
+    except (ValueError, TypeError):
+        return True
+
+
+def _annotate_hymn_dict(hymn_dict: dict, max_num=None) -> dict:
+    if hymn_dict:
+        hymn_dict["in_printed_hymnal"] = is_in_printed_hymnal(hymn_dict.get("hymn_number"), max_num=max_num)
+    return hymn_dict
+
 
 _WINDOWS_ABS = re.compile(r'^[A-Za-z]:[\\/]')
 
@@ -387,7 +407,8 @@ def get_all_hymns(db_path=DEFAULT_DB_PATH):
             ORDER BY CASE WHEN hymns.hymn_number IS NOT NULL THEN 0 ELSE 1 END ASC, hymns.hymn_number ASC, hymns.disc_number ASC, hymns.track_number ASC
         """)
         rows = cursor.fetchall()
-        return [dict(r) for r in rows]
+        max_num = get_max_printed_hymn_number()
+        return [_annotate_hymn_dict(dict(r), max_num=max_num) for r in rows]
 
 
 def search_hymns(query=None, season=None, category_type=None, disc=None, db_path=DEFAULT_DB_PATH):
@@ -446,7 +467,8 @@ def search_hymns(query=None, season=None, category_type=None, disc=None, db_path
         params.extend(order_params)
         cursor.execute(sql, params)
         rows = cursor.fetchall()
-        return [dict(r) for r in rows]
+        max_num = get_max_printed_hymn_number()
+        return [_annotate_hymn_dict(dict(r), max_num=max_num) for r in rows]
 
 
 def get_hymn_by_id(hymn_id, db_path=DEFAULT_DB_PATH):
@@ -460,7 +482,7 @@ def get_hymn_by_id(hymn_id, db_path=DEFAULT_DB_PATH):
             WHERE hymns.id = ?
         """, (hymn_id,))
         row = cursor.fetchone()
-        return dict(row) if row else None
+        return _annotate_hymn_dict(dict(row)) if row else None
 
 
 def get_hymn_usage_history(hymn_id, db_path=DEFAULT_DB_PATH):
@@ -505,5 +527,6 @@ def get_hymns_sharing_tune(tune_id, exclude_hymn_id=None, db_path=DEFAULT_DB_PAT
                      h.hymn_number ASC, h.title ASC
         """
         cursor.execute(sql, params)
-        return [dict(r) for r in cursor.fetchall()]
+        max_num = get_max_printed_hymn_number()
+        return [_annotate_hymn_dict(dict(r), max_num=max_num) for r in cursor.fetchall()]
 

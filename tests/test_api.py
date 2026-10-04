@@ -327,3 +327,22 @@ def test_get_hymn_enriched_details():
     assert isinstance(data["usage_history"], list)
     assert "same_tune_hymns" in data
     assert isinstance(data["same_tune_hymns"], list)
+
+
+@pytest.fixture(name="client")
+def _client_fixture():
+    return client
+
+
+def test_api_hymns_in_printed_hymnal_flag(client):
+    res = client.get("/api/hymns")
+    assert res.status_code == 200
+    data = res.json()
+    if data:
+        for h in data:
+            assert "in_printed_hymnal" in h
+            if h.get("hymn_number") and int(h["hymn_number"]) > 966:
+                assert h["in_printed_hymnal"] is False
+            elif h.get("hymn_number") and int(h["hymn_number"]) <= 966:
+                assert h["in_printed_hymnal"] is True
+

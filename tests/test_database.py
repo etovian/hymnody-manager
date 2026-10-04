@@ -464,3 +464,34 @@ def test_get_hymn_usage_history_and_same_tune(test_db):
     assert siblings[0]["id"] == 902
     assert siblings[0]["title"] == "Hymn Two"
 
+
+def test_in_printed_hymnal_annotation(tmp_path):
+    from src.database import init_db, save_hymns, search_hymns, get_hymn_by_id, get_all_hymns
+    db_file = str(tmp_path / "test_hymnal_flag.db")
+    init_db(db_file)
+    
+    sample_tracks = [
+        {"disc_number": 1, "track_number": 1, "hymn_number": 500, "title": "In Pew Hymnal", "liturgical_season": "General"},
+        {"disc_number": 1, "track_number": 2, "hymn_number": 966, "title": "Boundary Hymn", "liturgical_season": "General"},
+        {"disc_number": 1, "track_number": 3, "hymn_number": 970, "title": "Digital Only Hymn", "liturgical_season": "General"},
+        {"disc_number": 2, "track_number": 1, "hymn_number": None, "title": "Kyrie", "liturgical_season": "Divine Service 1"}
+    ]
+    save_hymns(sample_tracks, db_path=db_file)
+    
+    hymns = search_hymns(db_path=db_file)
+    by_title = {h["title"]: h for h in hymns}
+    
+    assert by_title["In Pew Hymnal"]["in_printed_hymnal"] is True
+    assert by_title["Boundary Hymn"]["in_printed_hymnal"] is True
+    assert by_title["Digital Only Hymn"]["in_printed_hymnal"] is False
+    assert by_title["Kyrie"]["in_printed_hymnal"] is True
+    
+    h_970 = by_title["Digital Only Hymn"]
+    fetched = get_hymn_by_id(h_970["id"], db_path=db_file)
+    assert fetched["in_printed_hymnal"] is False
+
+    all_h = get_all_hymns(db_path=db_file)
+    by_title_all = {h["title"]: h for h in all_h}
+    assert by_title_all["Digital Only Hymn"]["in_printed_hymnal"] is False
+
+

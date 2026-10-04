@@ -1,18 +1,21 @@
+import inspect
 import os
 from pathlib import Path
 
 import pytest
 
-from src.config import DEFAULT_MUSIC_DIR, get_music_dir
+from src.config import (
+    DEFAULT_MAX_PRINTED_HYMN,
+    DEFAULT_MUSIC_DIR,
+    get_max_printed_hymn_number,
+    get_music_dir,
+)
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 
 
 def test_default_music_dir_is_repo_root_music_folder():
     assert DEFAULT_MUSIC_DIR == REPO_ROOT / "music"
-
-
-import inspect
 
 
 def test_config_source_has_no_hardcoded_windows_path():
@@ -38,3 +41,19 @@ def test_get_music_dir_honors_env_override(monkeypatch, tmp_path):
     override = tmp_path / "elsewhere"
     monkeypatch.setenv("MUSIC_DIR", str(override))
     assert Path(get_music_dir()) == override
+
+
+def test_default_max_printed_hymn(monkeypatch):
+    monkeypatch.delenv("MAX_PRINTED_HYMN_NUMBER", raising=False)
+    assert DEFAULT_MAX_PRINTED_HYMN == 966
+    assert get_max_printed_hymn_number() == 966
+
+
+def test_override_max_printed_hymn(monkeypatch):
+    monkeypatch.setenv("MAX_PRINTED_HYMN_NUMBER", "950")
+    assert get_max_printed_hymn_number() == 950
+
+
+def test_invalid_max_printed_hymn_fallback(monkeypatch):
+    monkeypatch.setenv("MAX_PRINTED_HYMN_NUMBER", "invalid_number")
+    assert get_max_printed_hymn_number() == 966

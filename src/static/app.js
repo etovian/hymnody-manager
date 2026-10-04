@@ -227,12 +227,18 @@ function renderHymnList(hymns) {
       ? `Disc ${escapeHtml(h.disc_number)}, Track ${escapeHtml(h.track_number)} • ${escapeHtml(h.liturgical_season || 'General')}`
       : `${escapeHtml(h.liturgical_season || 'General')}`;
 
+    const unprintedBadge = (h.in_printed_hymnal === false)
+      ? `<span class="badge badge-not-in-hymnal" title="Not in printed hymnal (LSB contains hymns 1–966)" style="cursor: help;">⚠️ Not in Hymnal</span>`
+      : '';
+
     item.innerHTML = `
       <div style="display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0;">
         <span class="drag-handle" onclick="event.stopPropagation()">⋮⋮</span>
         <div style="cursor: pointer; flex: 1; min-width: 0;" onclick="openHymnDetailsModal(${h.id})" title="View hymn details, usage history, and tune siblings">
-          <span class="badge" style="margin-right: 6px;">${numTag}</span>
-          <span style="font-weight: 500;">${escapeHtml(h.title)}</span>
+          <div style="font-weight: 600; font-size: 0.95rem; color: #f8fafc; margin-bottom: 4px; line-height: 1.3;">${escapeHtml(h.title)}</div>
+          <div style="display: flex; gap: 6px; align-items: center; margin-bottom: 4px; flex-wrap: wrap;">
+            <span class="badge">${numTag}</span>${unprintedBadge}
+          </div>
           <div class="subtitle">${discTrackSubtitle}</div>
           <div class="subtitle">🎵 Tune: ${escapeHtml(h.tune_name || 'Unknown')} | 📜 Source: ${escapeHtml(h.source_meaning || 'Unknown')}</div>
         </div>
@@ -276,6 +282,12 @@ async function openHymnDetailsModal(hymnId) {
   const tuneHeading = document.getElementById('modal-tune-heading');
   const siblingsContainer = document.getElementById('modal-siblings-container');
 
+  const bannerEl = document.getElementById('modal-warning-banner');
+  if (bannerEl) {
+    bannerEl.classList.add('hidden');
+    bannerEl.innerHTML = '';
+  }
+
   // Initial loading state
   if (titleEl) titleEl.textContent = 'Loading Hymn Details...';
   if (subtitleEl) subtitleEl.textContent = '';
@@ -299,6 +311,16 @@ async function openHymnDetailsModal(hymnId) {
       ? `[LSB ${hymn.hymn_number}] - ${hymn.title}`
       : (hymn.title || '');
     if (titleEl) titleEl.textContent = titleText;
+
+    if (bannerEl) {
+      if (hymn.in_printed_hymnal === false) {
+        bannerEl.innerHTML = `⚠️ <strong>Accompaniment Track Only:</strong> This hymn (${escapeHtml(titleText)}) is not included in the printed hymnal (LSB contains hymns 1–966). A printed bulletin insert will be required for congregational singing.`;
+        bannerEl.classList.remove('hidden');
+      } else {
+        bannerEl.classList.add('hidden');
+        bannerEl.innerHTML = '';
+      }
+    }
 
     // 2. Populate subtitle: Disc/Track information if present, or "No Audio Accompaniment"
     const hasDiscTrack = Boolean(hymn.disc_number && hymn.track_number && Number(hymn.disc_number) > 0 && Number(hymn.track_number) > 0);

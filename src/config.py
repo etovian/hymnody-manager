@@ -10,8 +10,19 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parent.parent
 
 DEFAULT_MUSIC_DIR = REPO_ROOT / "music"
+DEFAULT_MAX_PRINTED_HYMN = 966
 
 
 def get_music_dir():
     """Return the .m4a audio directory, honoring the MUSIC_DIR override."""
     return os.environ.get("MUSIC_DIR", str(DEFAULT_MUSIC_DIR))
+
+
+def get_max_printed_hymn_number() -> int:
+    """Return the maximum printed hymn number, honoring MAX_PRINTED_HYMN_NUMBER."""
+    val = os.environ.get("MAX_PRINTED_HYMN_NUMBER", str(DEFAULT_MAX_PRINTED_HYMN))
+    try:
+        return int(val)
+    except ValueError:
+        return DEFAULT_MAX_PRINTED_HYMN
+

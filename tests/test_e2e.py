@@ -640,3 +640,36 @@ def test_hymn_details_modal_workflow_e2e(tmp_path):
     assert css_res.status_code == 200
     assert ".btn-icon-info" in css_res.text
 
+
+def test_catalog_unprinted_hymnal_badge_rendering():
+    with open("src/static/styles.css", "r", encoding="utf-8") as f:
+        css = f.read()
+    assert ".badge-not-in-hymnal" in css
+
+    with open("src/static/app.js", "r", encoding="utf-8") as f:
+        js = f.read()
+    assert "badge-not-in-hymnal" in js
+    assert "in_printed_hymnal === false" in js or "in_printed_hymnal" in js
+
+    # Verify title is on top row and badges on the second row
+    title_idx = js.find("${escapeHtml(h.title)}")
+    badge_idx = js.find("${numTag}</span>${unprintedBadge}")
+    assert title_idx != -1 and badge_idx != -1
+    assert title_idx < badge_idx, "Hymn title should appear in the row above the badges"
+
+
+def test_hymn_details_modal_unprinted_banner():
+    with open("src/static/index.html", "r", encoding="utf-8") as f:
+        html = f.read()
+    assert "modal-warning-banner" in html
+
+    with open("src/static/styles.css", "r", encoding="utf-8") as f:
+        css = f.read()
+    assert ".modal-warning-banner" in css
+
+    with open("src/static/app.js", "r", encoding="utf-8") as f:
+        js = f.read()
+    assert "modal-warning-banner" in js
+    assert "in_printed_hymnal === false" in js
+
+
