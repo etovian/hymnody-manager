@@ -269,6 +269,64 @@ function playCatalogHymn(hymnId) {
   updatePlayerUI({ item_title: itemTitle, slot_name: slotName });
 }
 
+function formatRelativeServiceDate(serviceDateStr, now = new Date()) {
+  if (!serviceDateStr || typeof serviceDateStr !== 'string') {
+    return { text: '-', isUpcoming: false };
+  }
+  const parts = serviceDateStr.trim().split('-');
+  if (parts.length !== 3) {
+    return { text: '-', isUpcoming: false };
+  }
+  const year = parseInt(parts[0], 10);
+  const month = parseInt(parts[1], 10) - 1;
+  const day = parseInt(parts[2], 10);
+  if (isNaN(year) || isNaN(month) || isNaN(day)) {
+    return { text: '-', isUpcoming: false };
+  }
+
+  const targetDate = new Date(year, month, day);
+  if (isNaN(targetDate.getTime())) {
+    return { text: '-', isUpcoming: false };
+  }
+
+  const todayMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const diffMs = targetDate.getTime() - todayMidnight.getTime();
+  const diffDays = Math.round(diffMs / (1000 * 60 * 60 * 24));
+
+  if (diffDays === 0) {
+    return { text: 'Today', isUpcoming: false };
+  }
+  if (diffDays === 1) {
+    return { text: 'Tomorrow', isUpcoming: true };
+  }
+  if (diffDays === -1) {
+    return { text: 'Yesterday', isUpcoming: false };
+  }
+
+  if (diffDays > 1) {
+    if (diffDays <= 13) {
+      return { text: `In ${diffDays} days`, isUpcoming: true };
+    }
+    const weeks = Math.round(diffDays / 7);
+    if (diffDays < 60) {
+      return { text: `In ${weeks} weeks`, isUpcoming: true };
+    }
+    const months = Math.round(diffDays / 30);
+    return { text: `In ${months} months`, isUpcoming: true };
+  } else {
+    const absDays = Math.abs(diffDays);
+    if (absDays <= 13) {
+      return { text: `${absDays} days ago`, isUpcoming: false };
+    }
+    const weeks = Math.round(absDays / 7);
+    if (absDays < 60) {
+      return { text: `${weeks} weeks ago`, isUpcoming: false };
+    }
+    const months = Math.round(absDays / 30);
+    return { text: `${months} months ago`, isUpcoming: false };
+  }
+}
+
 async function openHymnDetailsModal(hymnId) {
   const modal = document.getElementById('hymn-details-modal');
   if (!modal) return;
@@ -292,7 +350,7 @@ async function openHymnDetailsModal(hymnId) {
   if (titleEl) titleEl.textContent = 'Loading Hymn Details...';
   if (subtitleEl) subtitleEl.textContent = '';
   if (metaBar) metaBar.innerHTML = '<span class="badge" style="background: #334155; color: #94a3b8;">Loading metadata...</span>';
-  if (historyHeading) historyHeading.textContent = 'Previous Service Usage';
+  if (historyHeading) historyHeading.textContent = 'Service Usage';
   if (historyContainer) {
     historyContainer.innerHTML = '<p class="subtitle" style="padding: 16px; margin: 0; text-align: center; color: #94a3b8;">Loading history...</p>';
   }
@@ -346,33 +404,37 @@ async function openHymnDetailsModal(hymnId) {
       `;
     }
 
-    // 4. Populate previous service usage history
+    // 4. Populate service usage history
     const usageHistory = hymn.usage_history || [];
     if (historyHeading) {
-      historyHeading.textContent = `Previous Service Usage (${usageHistory.length})`;
+      historyHeading.textContent = `Service Usage (${usageHistory.length})`;
     }
     if (historyContainer) {
       if (!usageHistory.length) {
         historyContainer.innerHTML = '<p class="subtitle" style="padding: 16px; margin: 0; text-align: center; color: #94a3b8;">No previous service usage recorded for this hymn.</p>';
       } else {
-        const rowsHtml = usageHistory.map(u => `
-          <tr>
-            <td>${escapeHtml(u.service_date || '-')}</td>
-            <td>${escapeHtml(u.liturgical_day || '-')}</td>
-            <td>${escapeHtml(u.setting_preset || '-')}</td>
-            <td>${escapeHtml(u.service_title || '-')}</td>
-            <td>${escapeHtml(u.slot_name || '-')}</td>
-          </tr>
-        `).join('');
+        const rowsHtml = usageHistory.map(u => {
+          const rel = formatRelativeServiceDate(u.service_date);
+          const whenClass = rel.isUpcoming ? 'history-when-upcoming' : 'history-when-past';
+          return `
+            <tr>
+              <td>${escapeHtml(u.service_date || '-')}</td>
+              <td class="${whenClass}">${escapeHtml(rel.text)}</td>
+              <td>${escapeHtml(u.liturgical_day || '-')}</td>
+              <td>${escapeHtml(u.setting_preset || '-')}</td>
+              <td>${escapeHtml(u.slot_name || '-')}</td>
+            </tr>
+          `;
+        }).join('');
 
         historyContainer.innerHTML = `
           <table class="hymn-history-table">
             <thead>
               <tr>
                 <th>Date</th>
+                <th>When</th>
                 <th>Liturgical Day</th>
                 <th>Setting</th>
-                <th>Service Title</th>
                 <th>Slot</th>
               </tr>
             </thead>

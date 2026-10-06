@@ -487,6 +487,19 @@ def test_hymn_details_modal_ui_and_js_logic():
     assert "No other hymns in the catalog share this tune." in js
     assert "Escape" in js, "Escape key listener should close hymn details modal"
 
+    # Verify Service Usage heading and 5-column table structure
+    assert "Service Usage" in js
+    assert "Previous Service Usage" not in js
+    assert "<th>Date</th>" in js
+    assert "<th>When</th>" in js
+    assert "<th>Liturgical Day</th>" in js
+    assert "<th>Setting</th>" in js
+    assert "<th>Slot</th>" in js
+    assert "<th>Service Title</th>" not in js
+    assert "formatRelativeServiceDate(" in js
+    assert "history-when-upcoming" in js
+    assert "history-when-past" in js
+
 
 def test_hymn_details_modal_workflow_e2e(tmp_path):
     db_path = str(tmp_path / "e2e_modal_workflow.db")
@@ -690,3 +703,69 @@ def test_hymn_details_modal_unprinted_banner():
     assert "in_printed_hymnal === false" in js
 
 
+def test_hymn_details_modal_history_scrolling_and_heading():
+    with open("src/static/index.html", "r", encoding="utf-8") as f:
+        html = f.read()
+    with open("src/static/styles.css", "r", encoding="utf-8") as f:
+        css = f.read()
+
+    # Verify heading is "Service Usage" instead of "Previous Service Usage"
+    assert '<h4 id="modal-history-heading"' in html
+    assert "Service Usage" in html
+    assert "Previous Service Usage" not in html
+
+    # Verify container has max-height and overflow styles in CSS
+    assert "#modal-history-container" in css
+    assert "max-height: 220px;" in css
+    assert "overflow-y: auto;" in css
+
+    # Verify table headers are sticky with background in CSS
+    assert "position: sticky;" in css
+    assert "top: 0;" in css
+    assert "z-index:" in css
+
+
+def test_format_relative_service_date_logic():
+    import subprocess
+    # Run a node snippet that extracts formatRelativeServiceDate from app.js and runs assertions
+    node_script = """
+    const fs = require('fs');
+    const code = fs.readFileSync('src/static/app.js', 'utf-8');
+    // Extract formatRelativeServiceDate function
+    const fnMatch = code.match(/function formatRelativeServiceDate[\\s\\S]*?\\n}/);
+    if (!fnMatch) {
+        console.error("Function formatRelativeServiceDate not found in app.js");
+        process.exit(1);
+    }
+    eval(fnMatch[0]);
+
+    const refDate = new Date(2026, 9, 6); // 2026-10-06
+    const cases = [
+        { date: '2026-10-06', expectedText: 'Today', upcoming: false },
+        { date: '2026-10-05', expectedText: 'Yesterday', upcoming: false },
+        { date: '2026-10-07', expectedText: 'Tomorrow', upcoming: true },
+        { date: '2026-10-01', expectedText: '5 days ago', upcoming: false },
+        { date: '2026-09-23', expectedText: '13 days ago', upcoming: false },
+        { date: '2026-09-22', expectedText: '2 weeks ago', upcoming: false },
+        { date: '2026-08-07', expectedText: '2 months ago', upcoming: false },
+        { date: '2026-10-11', expectedText: 'In 5 days', upcoming: true },
+        { date: '2026-10-19', expectedText: 'In 13 days', upcoming: true },
+        { date: '2026-10-20', expectedText: 'In 2 weeks', upcoming: true },
+        { date: '2026-12-05', expectedText: 'In 2 months', upcoming: true },
+        { date: null, expectedText: '-', upcoming: false },
+        { date: '', expectedText: '-', upcoming: false },
+        { date: 'invalid-date', expectedText: '-', upcoming: false },
+    ];
+
+    for (const c of cases) {
+        const res = formatRelativeServiceDate(c.date, refDate);
+        if (res.text !== c.expectedText || res.isUpcoming !== c.upcoming) {
+            console.error(`Mismatch for ${c.date}: expected ${c.expectedText} (upcoming: ${c.upcoming}), got ${res.text} (upcoming: ${res.isUpcoming})`);
+            process.exit(1);
+        }
+    }
+    console.log("ALL_PASSED");
+    """
+    res = subprocess.run(["node", "-e", node_script], capture_output=True, text=True)
+    assert res.returncode == 0, f"Node test failed: {res.stderr}\n{res.stdout}"
+    assert "ALL_PASSED" in res.stdout

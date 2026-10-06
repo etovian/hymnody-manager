@@ -842,6 +842,11 @@ body {
 }
 
 /* Hymn Details Modal Specifics */
+#modal-history-container {
+  max-height: 220px;
+  overflow-y: auto;
+  overflow-x: auto;
+}
 .hymn-history-table {
   width: 100%;
   border-collapse: collapse;
@@ -854,6 +859,9 @@ body {
   font-weight: 600;
   padding: 8px 12px;
   border-bottom: 1px solid #334155;
+  position: sticky;
+  top: 0;
+  z-index: 2;
 }
 .hymn-history-table td {
   padding: 8px 12px;
@@ -862,6 +870,13 @@ body {
 }
 .hymn-history-table tr:last-child td {
   border-bottom: none;
+}
+.history-when-upcoming {
+  color: #38bdf8;
+  font-weight: 500;
+}
+.history-when-past {
+  color: #94a3b8;
 }
 .sibling-hymn-card {
   display: flex;
