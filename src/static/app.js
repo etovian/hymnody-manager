@@ -35,6 +35,19 @@ const MOBILE_UI_MODE = {
 let currentPlaybackMode = PLAYBACK_MODE.SINGLE;
 let currentMobileUiMode = MOBILE_UI_MODE.LITURGY;
 
+function getServiceHeading(service) {
+  if (!service) return 'Worship Service';
+  if (service.liturgical_day && service.liturgical_day.trim()) {
+    return service.liturgical_day.trim();
+  }
+  const dateStr = service.service_date ? service.service_date.trim() : '';
+  const settingStr = service.setting_preset ? service.setting_preset.trim() : '';
+  if (dateStr && settingStr) {
+    return `${dateStr} • ${settingStr}`;
+  }
+  return dateStr || settingStr || 'Worship Service';
+}
+
 function getActiveDisplayItems(targetService = mobileService) {
   const activeSvc = targetService || mobileService || currentService;
   const items = activeSvc ? (activeSvc.items || []) : [];
@@ -892,10 +905,9 @@ function buildServiceOptionsHtml(services, selectedId) {
   }
   return services.map(s => {
     const isSel = String(s.id) === String(selectedId) ? 'selected' : '';
-    const title = escapeHtml(s.title || 'Service');
-    const preset = s.setting_preset ? escapeHtml(` • ${s.setting_preset}`) : '';
+    const heading = escapeHtml(getServiceHeading(s));
     const dateStr = s.service_date || 'No Date';
-    return `<option value="${s.id}" ${isSel}>${dateStr} • ${title}${preset}</option>`;
+    return `<option value="${s.id}" ${isSel}>${dateStr} • ${heading}</option>`;
   }).join('');
 }
 
@@ -1024,7 +1036,7 @@ async function createDraftServiceLocally(presetVal = 'DS2') {
 
   currentService = {
     id: null,
-    title: "Sunday Worship Service",
+    title: dayVal || "Worship Service",
     service_date: dateVal,
     liturgical_day: dayVal,
     setting_preset: presetVal,
@@ -1089,7 +1101,7 @@ async function saveActiveServiceUI() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          title: currentService.title || "Sunday Worship Service",
+          title: currentService.liturgical_day || currentService.title || "Worship Service",
           service_date: currentService.service_date,
           liturgical_day: currentService.liturgical_day,
           setting_preset: currentService.setting_preset,
@@ -1113,7 +1125,7 @@ async function saveActiveServiceUI() {
         body: JSON.stringify({
           service_date: currentService.service_date,
           liturgical_day: currentService.liturgical_day,
-          title: currentService.title
+          title: currentService.liturgical_day || currentService.title || "Worship Service"
         })
       });
 
@@ -1143,8 +1155,9 @@ async function saveActiveServiceUI() {
 function renderService(service) {
   if (!service || !Array.isArray(service.items)) return;
 
-  const subtitle = `${service.service_date || ''}${service.liturgical_day ? ' • ' + service.liturgical_day : ''} | Setting: ${service.setting_preset || ''}`;
-  document.getElementById('service-title-display').textContent = `Service Plan: ${service.title || 'Sunday Service'}`;
+  const heading = getServiceHeading(service);
+  const subtitle = `Date: ${service.service_date || '--'} | Setting: ${service.setting_preset || '--'}`;
+  document.getElementById('service-title-display').textContent = heading;
   document.getElementById('service-subtitle-display').textContent = subtitle;
 
   document.getElementById('service-date-input').value = service.service_date || new Date().toISOString().split('T')[0];
@@ -1322,13 +1335,14 @@ function renderServicesExplorerList() {
   filtered.forEach(s => {
     const card = document.createElement('div');
     card.className = 'explorer-card';
+    const heading = escapeHtml(getServiceHeading(s));
     card.innerHTML = `
       <div class="flex-between">
         <span class="badge">${s.service_date}</span>
         <span class="subtitle">${s.setting_preset}</span>
       </div>
-      <div style="font-weight: 700; color: white;">${s.title}</div>
-      <div style="font-size: 0.75rem; color: #60a5fa;">${s.liturgical_day || 'Regular Worship Service'}</div>
+      <div style="font-weight: 700; color: white;">${heading}</div>
+      <div style="font-size: 0.75rem; color: #94a3b8;">Date: ${s.service_date || '--'} | Setting: ${s.setting_preset || '--'}</div>
       <div class="flex-between" style="margin-top: 8px;">
         <button class="btn btn-primary btn-sm" onclick="loadServiceFromExplorer(${s.id})">📂 Open</button>
         <div style="display: flex; gap: 4px;">
@@ -2229,11 +2243,12 @@ async function onMobileServiceSelectChanged(serviceId) {
 
 function renderMobileServiceInfo() {
   if (!mobileService) return;
-  const baseSubtitle = `${mobileService.service_date || ''}${mobileService.liturgical_day ? ' • ' + mobileService.liturgical_day : ''} | Setting: ${mobileService.setting_preset || ''}`;
+  const heading = getServiceHeading(mobileService);
+  const baseSubtitle = `Date: ${mobileService.service_date || '--'} | Setting: ${mobileService.setting_preset || '--'}`;
   const modeBadge = (currentMobileUiMode === MOBILE_UI_MODE.HYMNS_ONLY) ? ' • Hymns Only' : ' • Liturgy';
   const titleEl = document.getElementById('mobile-service-title');
   const subEl = document.getElementById('mobile-service-subtitle');
-  if (titleEl) titleEl.textContent = mobileService.title || 'Sunday Service';
+  if (titleEl) titleEl.textContent = heading;
   if (subEl) subEl.textContent = baseSubtitle + modeBadge;
 }
 
@@ -2727,7 +2742,7 @@ function readAndPreviewPlanFile(file) {
 async function executeImportPlanPayload(planData) {
   try {
     const srv = (planData && planData.service && typeof planData.service === 'object') ? planData.service : planData;
-    const titleStr = srv.title || srv.service_title || srv.name || 'Imported Service';
+    const titleStr = getServiceHeading(srv);
 
     showToast(`Importing service plan "${titleStr}"...`, "info", "Import Started");
 
