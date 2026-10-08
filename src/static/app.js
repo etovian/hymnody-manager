@@ -17,6 +17,7 @@ let explorerFilterMode = 'all';
 let availableTemplates = [];
 let selectedTemplateForEdit = null;
 let activeCatalogTab = 'hymn';
+let activeModalHymn = null;
 const PLAYBACK_MODE = {
   SINGLE: 'SINGLE',
   CONTINUOUS: 'CONTINUOUS',
@@ -24,17 +25,20 @@ const PLAYBACK_MODE = {
 };
 
 const MOBILE_UI_MODE = {
-  SERVICE: 'SERVICE',
-  PRESERVICE: 'PRESERVICE'
+  LITURGY: 'LITURGY',
+  HYMNS_ONLY: 'HYMNS_ONLY',
+  // Backward compatibility aliases
+  SERVICE: 'LITURGY',
+  PRESERVICE: 'HYMNS_ONLY'
 };
 
 let currentPlaybackMode = PLAYBACK_MODE.SINGLE;
-let currentMobileUiMode = MOBILE_UI_MODE.SERVICE;
+let currentMobileUiMode = MOBILE_UI_MODE.LITURGY;
 
 function getActiveDisplayItems(targetService = mobileService) {
   const activeSvc = targetService || mobileService || currentService;
   const items = activeSvc ? (activeSvc.items || []) : [];
-  if (currentMobileUiMode === MOBILE_UI_MODE.PRESERVICE) {
+  if (currentMobileUiMode === MOBILE_UI_MODE.HYMNS_ONLY) {
     return items.filter(item => {
       const hasAudio = Boolean(item.file_path && item.file_path.trim());
       const badge = getTrackCategoryBadge(item, hasAudio);
@@ -84,6 +88,8 @@ document.addEventListener('DOMContentLoaded', () => {
   loadTemplatesUI();
   fetchOrCreateService();
   setupAudioListeners();
+  updateMobileHeaderModeButton();
+  updateMobilePlaybackModeButton();
 });
 
 // View Switcher (Desktop vs Sanctuary Mobile Mode)
@@ -138,6 +144,7 @@ function switchView(mode, isExplicitUserAction = true) {
       mobileService = currentService;
     }
     updateMobileHeaderModeButton();
+    updateMobilePlaybackModeButton();
     renderMobileServiceInfo();
     renderMobilePlaylist();
   }
@@ -327,10 +334,200 @@ function formatRelativeServiceDate(serviceDateStr, now = new Date()) {
   }
 }
 
+function switchHymnModalTab(tabName) {
+  const btnInfo = document.getElementById('tab-btn-info');
+  const btnLyrics = document.getElementById('tab-btn-lyrics');
+  const paneInfo = document.getElementById('modal-tab-info-content');
+  const paneLyrics = document.getElementById('modal-tab-lyrics-content');
+
+  if (tabName === 'lyrics') {
+    if (btnLyrics) {
+      btnLyrics.classList.add('active');
+      btnLyrics.setAttribute('aria-selected', 'true');
+    }
+    if (btnInfo) {
+      btnInfo.classList.remove('active');
+      btnInfo.setAttribute('aria-selected', 'false');
+    }
+    if (paneLyrics) paneLyrics.classList.remove('hidden');
+    if (paneInfo) paneInfo.classList.add('hidden');
+  } else {
+    if (btnInfo) {
+      btnInfo.classList.add('active');
+      btnInfo.setAttribute('aria-selected', 'true');
+    }
+    if (btnLyrics) {
+      btnLyrics.classList.remove('active');
+      btnLyrics.setAttribute('aria-selected', 'false');
+    }
+    if (paneInfo) paneInfo.classList.remove('hidden');
+    if (paneLyrics) paneLyrics.classList.add('hidden');
+  }
+}
+
+function updateLyricsModalUI(lyrics) {
+  const badge = document.getElementById('modal-lyrics-badge');
+  const textEl = document.getElementById('lyrics-text');
+  const textarea = document.getElementById('lyrics-textarea');
+  const readView = document.getElementById('lyrics-read-view');
+  const editView = document.getElementById('lyrics-edit-view');
+  const emptyView = document.getElementById('lyrics-empty-view');
+  const btnCopy = document.getElementById('btn-copy-lyrics');
+  const btnEdit = document.getElementById('btn-edit-lyrics');
+  const btnSave = document.getElementById('btn-save-lyrics');
+  const btnCancel = document.getElementById('btn-cancel-lyrics');
+
+  const hasLyrics = Boolean(lyrics && lyrics.trim());
+
+  if (hasLyrics) {
+    if (badge) badge.classList.remove('hidden');
+    if (textEl) textEl.textContent = lyrics;
+    if (textarea) textarea.value = lyrics;
+    if (readView) readView.classList.remove('hidden');
+    if (editView) editView.classList.add('hidden');
+    if (emptyView) emptyView.classList.add('hidden');
+    if (btnCopy) btnCopy.classList.remove('hidden');
+    if (btnEdit) btnEdit.classList.remove('hidden');
+    if (btnSave) btnSave.classList.add('hidden');
+    if (btnCancel) btnCancel.classList.add('hidden');
+  } else {
+    if (badge) badge.classList.add('hidden');
+    if (textEl) textEl.textContent = '';
+    if (textarea) textarea.value = '';
+    if (emptyView) emptyView.classList.remove('hidden');
+    if (readView) readView.classList.add('hidden');
+    if (editView) editView.classList.add('hidden');
+    if (btnCopy) btnCopy.classList.add('hidden');
+    if (btnEdit) btnEdit.classList.add('hidden');
+    if (btnSave) btnSave.classList.add('hidden');
+    if (btnCancel) btnCancel.classList.add('hidden');
+  }
+}
+
+function enterLyricsEditMode() {
+  switchHymnModalTab('lyrics');
+
+  const readView = document.getElementById('lyrics-read-view');
+  const emptyView = document.getElementById('lyrics-empty-view');
+  const editView = document.getElementById('lyrics-edit-view');
+  const btnSave = document.getElementById('btn-save-lyrics');
+  const btnCancel = document.getElementById('btn-cancel-lyrics');
+  const btnCopy = document.getElementById('btn-copy-lyrics');
+  const btnEdit = document.getElementById('btn-edit-lyrics');
+  const textarea = document.getElementById('lyrics-textarea');
+
+  if (readView) readView.classList.add('hidden');
+  if (emptyView) emptyView.classList.add('hidden');
+  if (editView) editView.classList.remove('hidden');
+
+  if (btnSave) btnSave.classList.remove('hidden');
+  if (btnCancel) btnCancel.classList.remove('hidden');
+  if (btnCopy) btnCopy.classList.add('hidden');
+  if (btnEdit) btnEdit.classList.add('hidden');
+
+  if (textarea) {
+    textarea.value = activeModalHymn?.lyrics || '';
+    textarea.focus();
+  }
+}
+
+function cancelLyricsEdit() {
+  const editView = document.getElementById('lyrics-edit-view');
+  const btnSave = document.getElementById('btn-save-lyrics');
+  const btnCancel = document.getElementById('btn-cancel-lyrics');
+  const readView = document.getElementById('lyrics-read-view');
+  const emptyView = document.getElementById('lyrics-empty-view');
+  const btnCopy = document.getElementById('btn-copy-lyrics');
+  const btnEdit = document.getElementById('btn-edit-lyrics');
+
+  if (editView) editView.classList.add('hidden');
+  if (btnSave) btnSave.classList.add('hidden');
+  if (btnCancel) btnCancel.classList.add('hidden');
+
+  if (activeModalHymn?.lyrics && activeModalHymn.lyrics.trim()) {
+    if (readView) readView.classList.remove('hidden');
+    if (emptyView) emptyView.classList.add('hidden');
+    if (btnCopy) btnCopy.classList.remove('hidden');
+    if (btnEdit) btnEdit.classList.remove('hidden');
+  } else {
+    if (emptyView) emptyView.classList.remove('hidden');
+    if (readView) readView.classList.add('hidden');
+    if (btnCopy) btnCopy.classList.add('hidden');
+    if (btnEdit) btnEdit.classList.add('hidden');
+  }
+}
+
+async function saveHymnLyrics() {
+  if (!activeModalHymn || !activeModalHymn.id) return;
+
+  const textarea = document.getElementById('lyrics-textarea');
+  const lyricsText = textarea ? textarea.value : '';
+  const saveBtn = document.getElementById('btn-save-lyrics');
+
+  if (saveBtn) {
+    saveBtn.disabled = true;
+    saveBtn.textContent = 'Saving...';
+  }
+
+  try {
+    const res = await fetch(`/api/hymns/${activeModalHymn.id}/lyrics`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ lyrics: lyricsText })
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    activeModalHymn = data.hymn;
+
+    // Update in-memory hymn in currentHymns if cached
+    const cached = currentHymns.find(h => h.id === activeModalHymn.id);
+    if (cached) {
+      cached.lyrics = activeModalHymn.lyrics;
+    }
+
+    const textEl = document.getElementById('lyrics-text');
+    if (textEl) textEl.textContent = activeModalHymn.lyrics || '';
+
+    updateLyricsModalUI(activeModalHymn.lyrics);
+    showToast('Lyrics saved successfully!', 'success');
+  } catch (err) {
+    console.error('Failed to save lyrics:', err);
+    showToast('Failed to save lyrics. Please try again.', 'error');
+  } finally {
+    if (saveBtn) {
+      saveBtn.disabled = false;
+      saveBtn.textContent = '💾 Save';
+    }
+  }
+}
+
+async function copyHymnLyricsToClipboard() {
+  if (!activeModalHymn?.lyrics) return;
+  try {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      await navigator.clipboard.writeText(activeModalHymn.lyrics);
+    } else {
+      const ta = document.createElement('textarea');
+      ta.value = activeModalHymn.lyrics;
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand('copy');
+      document.body.removeChild(ta);
+    }
+    showToast('Lyrics copied to clipboard!', 'info');
+  } catch (err) {
+    console.error('Clipboard copy failed:', err);
+    showToast('Could not copy lyrics to clipboard', 'warning');
+  }
+}
+
 async function openHymnDetailsModal(hymnId) {
   const modal = document.getElementById('hymn-details-modal');
   if (!modal) return;
   modal.classList.remove('hidden');
+
+  switchHymnModalTab('info');
+  updateLyricsModalUI(null);
 
   const titleEl = document.getElementById('modal-hymn-title');
   const subtitleEl = document.getElementById('modal-hymn-subtitle');
@@ -363,6 +560,11 @@ async function openHymnDetailsModal(hymnId) {
     const res = await fetch(`/api/hymns/${hymnId}`);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const hymn = await res.json();
+    activeModalHymn = hymn;
+
+    // Reset tab to 'info' and configure lyrics UI
+    switchHymnModalTab('info');
+    updateLyricsModalUI(hymn.lyrics);
 
     // 1. Populate title: [LSB ${hymn.hymn_number}] - ${hymn.title} (or ${hymn.title} if hymn_number is null)
     const titleText = hymn.hymn_number
@@ -492,10 +694,13 @@ async function openHymnDetailsModal(hymnId) {
     if (metaBar) metaBar.innerHTML = '';
     if (historyContainer) historyContainer.innerHTML = '';
     if (siblingsContainer) siblingsContainer.innerHTML = '';
+    updateLyricsModalUI(null);
   }
 }
 
 function closeHymnDetailsModal() {
+  activeModalHymn = null;
+  cancelLyricsEdit();
   const modal = document.getElementById('hymn-details-modal');
   if (modal) {
     modal.classList.add('hidden');
@@ -1139,6 +1344,13 @@ function renderServicesExplorerList() {
 async function loadServiceFromExplorer(serviceId) {
   closeServicesExplorer();
   await loadService(serviceId);
+  if (currentService) {
+    mobileService = currentService;
+    const select = document.getElementById('mobile-service-select');
+    if (select) select.value = serviceId;
+    renderMobileServiceInfo();
+    renderMobilePlaylist();
+  }
 }
 
 async function duplicateServiceFromExplorer(serviceId) {
@@ -1155,6 +1367,9 @@ async function duplicateServiceFromExplorer(serviceId) {
     const dup = await res.json();
     closeServicesExplorer();
     await loadService(dup.id);
+    mobileService = currentService;
+    renderMobileServiceInfo();
+    renderMobilePlaylist();
   } catch (err) {
     console.error("Error duplicating service:", err);
   }
@@ -1851,18 +2066,49 @@ function getDisplaySlot(item, displayTitle) {
   return slotName !== displayTitle ? slotName : '';
 }
 
-function toggleMobileUiMode() {
-  if (currentMobileUiMode === MOBILE_UI_MODE.SERVICE) {
-    currentMobileUiMode = MOBILE_UI_MODE.PRESERVICE;
+function cyclePlaybackMode() {
+  if (currentPlaybackMode === PLAYBACK_MODE.SINGLE) {
+    currentPlaybackMode = PLAYBACK_MODE.CONTINUOUS;
+    showToast("Continuous Playback (Plays through end of playlist)", "info", "Playback Mode");
+  } else if (currentPlaybackMode === PLAYBACK_MODE.CONTINUOUS) {
     currentPlaybackMode = PLAYBACK_MODE.REPEAT_ALL;
-    showToast("Preservice Meditation Mode (Hymns Only • Looping)", "info", "Preservice Mode");
+    showToast("Repeat All (Loops playlist continuously)", "info", "Playback Mode");
   } else {
-    currentMobileUiMode = MOBILE_UI_MODE.SERVICE;
     currentPlaybackMode = PLAYBACK_MODE.SINGLE;
-    showToast("Full Service Mode (Single Track Stop)", "info", "Service Mode");
+    showToast("Single Track (Stops after each track)", "info", "Playback Mode");
+  }
+  updateMobilePlaybackModeButton();
+}
+
+function updateMobilePlaybackModeButton() {
+  const btn = document.getElementById('btn-mobile-playback-mode');
+  if (!btn) return;
+
+  if (currentPlaybackMode === PLAYBACK_MODE.CONTINUOUS) {
+    btn.textContent = '⏩ Continuous';
+    btn.className = 'btn btn-amber mobile-header-btn';
+  } else if (currentPlaybackMode === PLAYBACK_MODE.REPEAT_ALL) {
+    btn.textContent = '🔁 Repeat All';
+    btn.className = 'btn btn-blue mobile-header-btn';
+  } else {
+    btn.textContent = '⏹ Single Track';
+    btn.className = 'btn btn-slate mobile-header-btn';
+  }
+}
+
+function toggleMobileUiMode() {
+  if (currentMobileUiMode === MOBILE_UI_MODE.LITURGY) {
+    currentMobileUiMode = MOBILE_UI_MODE.HYMNS_ONLY;
+    currentPlaybackMode = PLAYBACK_MODE.REPEAT_ALL;
+    showToast("Hymns Only Mode (Looping)", "info", "Hymns Only Mode");
+  } else {
+    currentMobileUiMode = MOBILE_UI_MODE.LITURGY;
+    currentPlaybackMode = PLAYBACK_MODE.SINGLE;
+    showToast("Liturgy Mode (Single Track Stop)", "info", "Liturgy Mode");
   }
 
   updateMobileHeaderModeButton();
+  updateMobilePlaybackModeButton();
   renderMobileServiceInfo();
   renderMobilePlaylist();
 }
@@ -1871,12 +2117,12 @@ function updateMobileHeaderModeButton() {
   const btn = document.getElementById('btn-mobile-mode-toggle');
   if (!btn) return;
 
-  if (currentMobileUiMode === MOBILE_UI_MODE.PRESERVICE) {
-    btn.textContent = '🎵 Preservice';
-    btn.className = 'btn btn-preservice-pill btn-preservice-active';
+  if (currentMobileUiMode === MOBILE_UI_MODE.HYMNS_ONLY) {
+    btn.textContent = '🎵 Hymns Only';
+    btn.className = 'btn btn-preservice-pill btn-preservice-active mobile-header-btn';
   } else {
-    btn.textContent = '📜 Full Service';
-    btn.className = 'btn btn-emerald btn-preservice-pill';
+    btn.textContent = '📜 Liturgy';
+    btn.className = 'btn btn-emerald mobile-header-btn';
   }
 }
 
@@ -1887,7 +2133,7 @@ function renderMobilePlaylist(service = mobileService) {
 
   const items = getActiveDisplayItems(service);
   if (items.length === 0) {
-    const msg = (currentMobileUiMode === MOBILE_UI_MODE.PRESERVICE)
+    const msg = (currentMobileUiMode === MOBILE_UI_MODE.HYMNS_ONLY)
       ? 'No hymns with audio files available in this service plan.'
       : 'No service selected or service has no items.';
     mobilePlaylist.innerHTML = `<div style="color: #94a3b8; font-size: 0.9rem; padding: 1rem; text-align: center;">${msg}</div>`;
@@ -1984,7 +2230,7 @@ async function onMobileServiceSelectChanged(serviceId) {
 function renderMobileServiceInfo() {
   if (!mobileService) return;
   const baseSubtitle = `${mobileService.service_date || ''}${mobileService.liturgical_day ? ' • ' + mobileService.liturgical_day : ''} | Setting: ${mobileService.setting_preset || ''}`;
-  const modeBadge = (currentMobileUiMode === MOBILE_UI_MODE.PRESERVICE) ? ' • Preservice Hymns (Looping)' : ' • Full Service';
+  const modeBadge = (currentMobileUiMode === MOBILE_UI_MODE.HYMNS_ONLY) ? ' • Hymns Only' : ' • Liturgy';
   const titleEl = document.getElementById('mobile-service-title');
   const subEl = document.getElementById('mobile-service-subtitle');
   if (titleEl) titleEl.textContent = mobileService.title || 'Sunday Service';
@@ -2180,6 +2426,32 @@ function setupAudioListeners() {
       audioPlayer.currentTime = 0;
       updatePlayButtonUI();
       renderMobilePlaylist();
+    } else if (currentPlaybackMode === PLAYBACK_MODE.CONTINUOUS) {
+      const activeItems = getActiveDisplayItems();
+      if (activeItems.length > 0) {
+        let currentPos = activeItems.findIndex(it => {
+          if (mobileService && mobileService.items) {
+            return mobileService.items.indexOf(it) === activeTrackIndex;
+          }
+          return false;
+        });
+        if (currentPos !== -1 && currentPos + 1 < activeItems.length) {
+          const nextItem = activeItems[currentPos + 1];
+          const nextIndex = (mobileService && mobileService.items) ? mobileService.items.indexOf(nextItem) : 0;
+          playServiceTrack(nextIndex);
+        } else {
+          // Reached end of playlist without looping
+          isPlaying = false;
+          audioPlayer.currentTime = 0;
+          updatePlayButtonUI();
+          renderMobilePlaylist();
+        }
+      } else {
+        isPlaying = false;
+        audioPlayer.currentTime = 0;
+        updatePlayButtonUI();
+        renderMobilePlaylist();
+      }
     } else if (currentPlaybackMode === PLAYBACK_MODE.REPEAT_ALL) {
       const activeItems = getActiveDisplayItems();
       if (activeItems.length > 0) {

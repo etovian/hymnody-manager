@@ -495,3 +495,102 @@ def test_in_printed_hymnal_annotation(tmp_path):
     assert by_title_all["Digital Only Hymn"]["in_printed_hymnal"] is False
 
 
+def test_hymn_lyrics_migration_and_update(tmp_path):
+    from src.database import init_db, save_hymns, get_hymn_by_id, update_hymn_lyrics
+    db_path = str(tmp_path / "lyrics_test.db")
+    init_db(db_path)
+
+    # Insert a hymn
+    save_hymns([{
+        'hymn_number': 331,
+        'title': 'The advent of our King',
+        'disc_number': 1,
+        'track_number': 1,
+        'album': 'The Concordia Organist',
+        'artist': 'Concordia Publishing House',
+        'year': 2009,
+        'file_path': 'dummy/path/1-01.m4a',
+        'liturgical_season': 'Advent'
+    }], db_path)
+
+    hymn = get_hymn_by_id(1, db_path=db_path)
+    assert hymn is not None
+    assert 'lyrics' in hymn
+    assert hymn['lyrics'] is None
+
+    # Update lyrics
+    lyrics_text = "1. The advent of our King\nOur prayers must now employ,\nAnd we must hymns of welcome sing\nIn strains of holy joy."
+    success = update_hymn_lyrics(1, lyrics_text, db_path=db_path)
+    assert success is True
+
+    # Non-existent ID returns False
+    assert update_hymn_lyrics(99999, "Some lyrics", db_path=db_path) is False
+
+    # Retrieve and verify
+    updated = get_hymn_by_id(1, db_path=db_path)
+    assert updated['lyrics'] == lyrics_text
+
+    # Rescan / save_hymns without specifying lyrics preserves existing lyrics
+    save_hymns([{
+        'hymn_number': 331,
+        'title': 'The advent of our King',
+        'disc_number': 1,
+        'track_number': 1,
+        'album': 'The Concordia Organist',
+        'artist': 'Concordia Publishing House',
+        'year': 2009,
+        'file_path': 'dummy/path/1-01.m4a',
+        'liturgical_season': 'Advent'
+    }], db_path)
+    rescanned = get_hymn_by_id(1, db_path=db_path)
+    assert rescanned['lyrics'] == lyrics_text
+
+    # Clear lyrics (set to None)
+    success = update_hymn_lyrics(1, None, db_path=db_path)
+    assert success is True
+    cleared = get_hymn_by_id(1, db_path=db_path)
+    assert cleared['lyrics'] is None
+
+
+def test_lyrics_migration_from_older_schema(tmp_path):
+    from src.database import init_db, get_db_connection
+    db_path = str(tmp_path / "older_schema.db")
+
+    # Create older schema without lyrics column
+    conn = sqlite3.connect(db_path)
+    conn.execute("""
+        CREATE TABLE hymns (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            hymn_number INTEGER,
+            title TEXT NOT NULL,
+            disc_number INTEGER,
+            track_number INTEGER,
+            album TEXT,
+            artist TEXT,
+            year INTEGER,
+            file_path TEXT UNIQUE,
+            liturgical_season TEXT,
+            tune_id INTEGER,
+            source_code TEXT
+        );
+    """)
+    conn.commit()
+    conn.close()
+
+    # Verify column does not exist yet
+    conn = sqlite3.connect(db_path)
+    cols = [col[1] for col in conn.execute("PRAGMA table_info(hymns)").fetchall()]
+    conn.close()
+    assert "lyrics" not in cols
+
+    # Run init_db which should execute the migration
+    init_db(db_path)
+
+    # Verify lyrics column was added
+    with get_db_connection(db_path) as conn:
+        cols = [col['name'] for col in conn.execute("PRAGMA table_info(hymns)").fetchall()]
+        assert "lyrics" in cols
+
+
+
+

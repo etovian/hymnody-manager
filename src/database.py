@@ -81,6 +81,7 @@ def init_db(db_path=DEFAULT_DB_PATH):
                 liturgical_season TEXT,
                 tune_id INTEGER,
                 source_code TEXT,
+                lyrics TEXT,
                 FOREIGN KEY (tune_id) REFERENCES tunes(id),
                 FOREIGN KEY (source_code) REFERENCES sources(code)
             );
@@ -108,6 +109,7 @@ def init_db(db_path=DEFAULT_DB_PATH):
                     liturgical_season TEXT,
                     tune_id INTEGER,
                     source_code TEXT,
+                    lyrics TEXT,
                     FOREIGN KEY (tune_id) REFERENCES tunes(id),
                     FOREIGN KEY (source_code) REFERENCES sources(code)
                 );
@@ -127,6 +129,8 @@ def init_db(db_path=DEFAULT_DB_PATH):
             cursor.execute("ALTER TABLE hymns ADD COLUMN tune_id INTEGER")
         if 'source_code' not in hymn_col_names:
             cursor.execute("ALTER TABLE hymns ADD COLUMN source_code TEXT")
+        if 'lyrics' not in hymn_col_names:
+            cursor.execute("ALTER TABLE hymns ADD COLUMN lyrics TEXT")
 
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS services (
@@ -324,10 +328,10 @@ def save_hymns(hymns_list, db_path=DEFAULT_DB_PATH):
             target_id = h.get('id')
             existing_row = None
             if target_id:
-                cursor.execute("SELECT id, title, tune_id, source_code FROM hymns WHERE id = ?", (target_id,))
+                cursor.execute("SELECT id, title, tune_id, source_code, lyrics FROM hymns WHERE id = ?", (target_id,))
                 existing_row = cursor.fetchone()
             elif h_num:
-                cursor.execute("SELECT id, title, tune_id, source_code FROM hymns WHERE hymn_number = ?", (h_num,))
+                cursor.execute("SELECT id, title, tune_id, source_code, lyrics FROM hymns WHERE hymn_number = ?", (h_num,))
                 existing_row = cursor.fetchone()
                 if existing_row:
                     target_id = existing_row['id']
@@ -337,6 +341,8 @@ def save_hymns(hymns_list, db_path=DEFAULT_DB_PATH):
                     tune_id = existing_row['tune_id']
                 if source_code is None:
                     source_code = existing_row['source_code']
+
+            lyrics = h.get('lyrics') or (existing_row['lyrics'] if existing_row and 'lyrics' in existing_row.keys() else None)
 
             if (tune_id is None or source_code is None) and h_num and h_num in HYMN_CATALOG:
                 cat_entry = HYMN_CATALOG[h_num]
@@ -377,8 +383,8 @@ def save_hymns(hymns_list, db_path=DEFAULT_DB_PATH):
 
             cursor.execute("""
                 INSERT OR REPLACE INTO hymns 
-                (id, hymn_number, title, disc_number, track_number, album, artist, year, file_path, liturgical_season, tune_id, source_code)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                (id, hymn_number, title, disc_number, track_number, album, artist, year, file_path, liturgical_season, tune_id, source_code, lyrics)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """, (
                 target_id,
                 h_num,
@@ -391,7 +397,8 @@ def save_hymns(hymns_list, db_path=DEFAULT_DB_PATH):
                 norm_path,
                 h.get('liturgical_season', 'General'),
                 tune_id,
-                source_code
+                source_code,
+                lyrics
             ))
         conn.commit()
 
@@ -529,4 +536,13 @@ def get_hymns_sharing_tune(tune_id, exclude_hymn_id=None, db_path=DEFAULT_DB_PAT
         cursor.execute(sql, params)
         max_num = get_max_printed_hymn_number()
         return [_annotate_hymn_dict(dict(r), max_num=max_num) for r in cursor.fetchall()]
+
+
+def update_hymn_lyrics(hymn_id: int, lyrics: str | None, db_path=DEFAULT_DB_PATH) -> bool:
+    with get_db_connection(db_path) as conn:
+        cursor = conn.cursor()
+        cursor.execute("UPDATE hymns SET lyrics = ? WHERE id = ?", (lyrics, hymn_id))
+        conn.commit()
+        return cursor.rowcount > 0
+
 

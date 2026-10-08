@@ -817,11 +817,51 @@ body {
 
 
 .mobile-header-controls {
-  display: flex;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
   gap: 8px;
-  align-items: center;
-  margin-top: 8px;
-  width: 100%;
+  margin-top: 10px;
+}
+
+.mobile-header-btn {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding: 10px 6px;
+  font-weight: 700;
+  border-radius: 8px;
+  font-size: 0.82rem;
+  text-align: center;
+  justify-content: center;
+  min-height: 42px;
+}
+
+.btn-slate {
+  background: #334155;
+  color: #f8fafc;
+  border: 1px solid #475569;
+}
+.btn-slate:hover {
+  background: #475569;
+}
+
+.btn-amber {
+  background: #d97706;
+  color: #ffffff;
+  border: 1px solid #b45309;
+}
+.btn-amber:hover {
+  background: #b45309;
+}
+
+.btn-blue {
+  background: #2563eb;
+  color: #ffffff;
+  border: 1px solid #1d4ed8;
+}
+.btn-blue:hover {
+  background: #1d4ed8;
 }
 
 .btn-preservice-pill {
@@ -930,4 +970,78 @@ body {
   font-size: 0.85rem;
   line-height: 1.4;
 }
+
+/* Modal Tabs */
+.modal-tabs {
+  display: flex;
+  gap: 8px;
+  border-bottom: 1px solid #334155;
+}
+
+.modal-tab-btn {
+  background: transparent;
+  color: #94a3b8;
+  border: 1px solid transparent;
+  border-bottom: none;
+  padding: 6px 14px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  border-radius: 6px 6px 0 0;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.15s ease;
+}
+
+.modal-tab-btn:hover {
+  color: #f1f5f9;
+  background: rgba(51, 65, 85, 0.4);
+}
+
+.modal-tab-btn.active {
+  color: #38bdf8;
+  background: #0f172a;
+  border-color: #334155;
+  border-bottom: 2px solid #38bdf8;
+}
+
+.badge-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background-color: #10b981;
+  display: inline-block;
+}
+
+/* Lyrics Display & Editor */
+.lyrics-text-display {
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-family: inherit;
+  font-size: 0.95rem;
+  line-height: 1.7;
+  color: #e2e8f0;
+}
+
+.lyrics-textarea {
+  width: 100%;
+  background: #0f172a;
+  color: #f8fafc;
+  border: 1px solid #334155;
+  border-radius: 8px;
+  padding: 12px 14px;
+  font-size: 0.95rem;
+  line-height: 1.6;
+  font-family: inherit;
+  resize: vertical;
+  box-sizing: border-box;
+}
+
+.lyrics-textarea:focus {
+  outline: none;
+  border-color: #38bdf8;
+  box-shadow: 0 0 0 2px rgba(56, 189, 248, 0.2);
+}
+
 

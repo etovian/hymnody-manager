@@ -769,3 +769,286 @@ def test_format_relative_service_date_logic():
     res = subprocess.run(["node", "-e", node_script], capture_output=True, text=True)
     assert res.returncode == 0, f"Node test failed: {res.stderr}\n{res.stdout}"
     assert "ALL_PASSED" in res.stdout
+
+
+def test_hymn_details_modal_tabs_and_lyrics_html():
+    with open("src/static/index.html", "r", encoding="utf-8") as f:
+        html = f.read()
+
+    # Check tab buttons
+    assert 'id="tab-btn-info"' in html
+    assert 'id="tab-btn-lyrics"' in html
+    assert 'switchHymnModalTab' in html
+
+    # Check tab containers
+    assert 'id="modal-tab-info-content"' in html
+    assert 'id="modal-tab-lyrics-content"' in html
+
+    # Check lyrics sub-views & elements
+    assert 'id="lyrics-read-view"' in html
+    assert 'id="lyrics-edit-view"' in html
+    assert 'id="lyrics-empty-view"' in html
+    assert 'id="lyrics-text"' in html
+    assert 'id="lyrics-textarea"' in html
+    assert 'btn-copy-lyrics' in html
+    assert 'btn-edit-lyrics' in html
+    assert 'btn-save-lyrics' in html
+    assert 'btn-cancel-lyrics' in html
+
+
+def test_hymn_details_lyrics_js_logic():
+    with open("src/static/app.js", "r", encoding="utf-8") as f:
+        js = f.read()
+
+    assert "function switchHymnModalTab(" in js
+    assert "function enterLyricsEditMode(" in js
+    assert "function cancelLyricsEdit(" in js
+    assert "async function saveHymnLyrics(" in js
+    assert "async function copyHymnLyricsToClipboard(" in js
+
+    import subprocess
+    node_test = """
+    const fs = require('fs');
+    const js = fs.readFileSync('src/static/app.js', 'utf8');
+
+    const elements = {};
+    function mockEl(id) {
+        return {
+            id,
+            className: '',
+            classList: {
+                classes: new Set(),
+                add(c) { this.classes.add(c); },
+                remove(c) { this.classes.delete(c); },
+                contains(c) { return this.classes.has(c); }
+            },
+            attributes: {},
+            setAttribute(k, v) { this.attributes[k] = v; },
+            getAttribute(k) { return this.attributes[k]; },
+            value: '',
+            textContent: '',
+            disabled: false,
+            focus() { this.focused = true; }
+        };
+    }
+    const ids = [
+        'tab-btn-info', 'tab-btn-lyrics',
+        'modal-tab-info-content', 'modal-tab-lyrics-content',
+        'modal-lyrics-badge', 'lyrics-text', 'lyrics-textarea',
+        'lyrics-read-view', 'lyrics-edit-view', 'lyrics-empty-view',
+        'btn-copy-lyrics', 'btn-edit-lyrics', 'btn-save-lyrics', 'btn-cancel-lyrics',
+        'hymn-details-modal'
+    ];
+    for (const id of ids) {
+        elements[id] = mockEl(id);
+    }
+    global.document = {
+        getElementById: (id) => elements[id] || null
+    };
+    global.window = {};
+    global.showToast = () => {};
+
+    eval(js.match(/function switchHymnModalTab[\\s\\S]*?\\n}/)[0]);
+    eval(js.match(/function updateLyricsModalUI[\\s\\S]*?\\n}/)[0]);
+    eval(js.match(/function enterLyricsEditMode[\\s\\S]*?\\n}/)[0]);
+    eval(js.match(/function cancelLyricsEdit[\\s\\S]*?\\n}/)[0]);
+
+    // Test switchHymnModalTab
+    switchHymnModalTab('lyrics');
+    if (!elements['tab-btn-lyrics'].classList.contains('active')) throw new Error('tab-btn-lyrics should be active');
+    if (elements['tab-btn-info'].classList.contains('active')) throw new Error('tab-btn-info should not be active');
+    if (elements['modal-tab-lyrics-content'].classList.contains('hidden')) throw new Error('lyrics pane should not be hidden');
+    if (!elements['modal-tab-info-content'].classList.contains('hidden')) throw new Error('info pane should be hidden');
+
+    switchHymnModalTab('info');
+    if (!elements['tab-btn-info'].classList.contains('active')) throw new Error('tab-btn-info should be active');
+    if (elements['tab-btn-lyrics'].classList.contains('active')) throw new Error('tab-btn-lyrics should not be active');
+
+    // Test updateLyricsModalUI with lyrics
+    updateLyricsModalUI('Stanza 1\\n\\nStanza 2');
+    if (elements['modal-lyrics-badge'].classList.contains('hidden')) throw new Error('badge should be visible');
+    if (elements['lyrics-read-view'].classList.contains('hidden')) throw new Error('read view should be visible');
+    if (!elements['lyrics-edit-view'].classList.contains('hidden')) throw new Error('edit view should be hidden');
+    if (!elements['lyrics-empty-view'].classList.contains('hidden')) throw new Error('empty view should be hidden');
+    if (elements['lyrics-text'].textContent !== 'Stanza 1\\n\\nStanza 2') throw new Error('text content mismatch');
+
+    // Test updateLyricsModalUI with empty/null
+    updateLyricsModalUI('');
+    if (!elements['modal-lyrics-badge'].classList.contains('hidden')) throw new Error('badge should be hidden');
+    if (!elements['lyrics-read-view'].classList.contains('hidden')) throw new Error('read view should be hidden');
+    if (elements['lyrics-empty-view'].classList.contains('hidden')) throw new Error('empty view should be visible');
+
+    console.log("ALL_PASSED");
+    """
+    res = subprocess.run(["node", "-e", node_test], capture_output=True, text=True)
+    assert res.returncode == 0, f"Node test failed: {res.stderr}\n{res.stdout}"
+    assert "ALL_PASSED" in res.stdout
+
+
+def test_lyrics_modal_full_integration():
+    with open("src/static/index.html", "r", encoding="utf-8") as f:
+        html = f.read()
+    with open("src/static/styles.css", "r", encoding="utf-8") as f:
+        css = f.read()
+    with open("src/static/app.js", "r", encoding="utf-8") as f:
+        js = f.read()
+
+    # 1. Verify HTML element IDs and attributes referenced in app.js match src/static/index.html
+    expected_ids = [
+        "tab-btn-info",
+        "tab-btn-lyrics",
+        "modal-tab-info-content",
+        "modal-tab-lyrics-content",
+        "modal-lyrics-badge",
+        "btn-copy-lyrics",
+        "btn-edit-lyrics",
+        "btn-save-lyrics",
+        "btn-cancel-lyrics",
+        "lyrics-read-view",
+        "lyrics-edit-view",
+        "lyrics-empty-view",
+        "btn-add-lyrics",
+        "lyrics-text",
+        "lyrics-textarea",
+    ]
+    for el_id in expected_ids:
+        assert f'id="{el_id}"' in html, f"Missing HTML element ID in index.html: {el_id}"
+
+    # Verify lyrics-toolbar class/element
+    assert "lyrics-toolbar" in html, "Missing lyrics-toolbar in index.html"
+
+    # Verify tab accessibility attributes
+    assert 'role="tab"' in html
+    assert 'role="tabpanel"' in html
+    assert 'aria-controls="modal-tab-info-content"' in html
+    assert 'aria-controls="modal-tab-lyrics-content"' in html
+    assert 'aria-labelledby="tab-btn-info"' in html
+    assert 'aria-labelledby="tab-btn-lyrics"' in html
+
+    # 2. Verify CSS classes used in index.html and app.js are declared in src/static/styles.css
+    expected_classes = [
+        ".modal-tabs",
+        ".modal-tab-btn",
+        ".modal-tab-btn.active",
+        ".badge-dot",
+        ".lyrics-text-display",
+        ".lyrics-textarea",
+    ]
+    for cls in expected_classes:
+        assert cls in css, f"Missing CSS class in styles.css: {cls}"
+
+    # 3. Test modal reset and lifecycle in Node.js DOM mock
+    import subprocess
+    node_lifecycle_script = """
+    const fs = require('fs');
+    const js = fs.readFileSync('src/static/app.js', 'utf8');
+
+    const elements = {};
+    function mockEl(id) {
+        return {
+            id,
+            className: '',
+            classList: {
+                classes: new Set(),
+                add(c) { this.classes.add(c); },
+                remove(c) { this.classes.delete(c); },
+                contains(c) { return this.classes.has(c); }
+            },
+            attributes: {},
+            setAttribute(k, v) { this.attributes[k] = v; },
+            getAttribute(k) { return this.attributes[k]; },
+            value: '',
+            textContent: '',
+            disabled: false,
+            focus() { this.focused = true; }
+        };
+    }
+
+    const ids = [
+        'tab-btn-info', 'tab-btn-lyrics',
+        'modal-tab-info-content', 'modal-tab-lyrics-content',
+        'modal-lyrics-badge', 'lyrics-text', 'lyrics-textarea',
+        'lyrics-read-view', 'lyrics-edit-view', 'lyrics-empty-view',
+        'btn-copy-lyrics', 'btn-edit-lyrics', 'btn-save-lyrics', 'btn-cancel-lyrics',
+        'btn-add-lyrics', 'hymn-details-modal'
+    ];
+    for (const id of ids) {
+        elements[id] = mockEl(id);
+    }
+
+    global.document = {
+        getElementById: (id) => elements[id] || null
+    };
+    global.window = {};
+    global.showToast = () => {};
+
+    // Scope activeModalHymn and import needed functions
+    eval("var activeModalHymn = null;");
+    eval(js.match(/function switchHymnModalTab[\\s\\S]*?\\n}/)[0]);
+    eval(js.match(/function updateLyricsModalUI[\\s\\S]*?\\n}/)[0]);
+    eval(js.match(/function enterLyricsEditMode[\\s\\S]*?\\n}/)[0]);
+    eval(js.match(/function cancelLyricsEdit[\\s\\S]*?\\n}/)[0]);
+    eval(js.match(/function closeHymnDetailsModal[\\s\\S]*?\\n}/)[0]);
+
+    // Test 1: Empty state initial display
+    updateLyricsModalUI('');
+    if (!elements['modal-lyrics-badge'].classList.contains('hidden')) throw new Error('Badge should be hidden when empty');
+    if (elements['lyrics-empty-view'].classList.contains('hidden')) throw new Error('Empty view should be visible');
+    if (!elements['lyrics-read-view'].classList.contains('hidden')) throw new Error('Read view should be hidden');
+    if (!elements['lyrics-edit-view'].classList.contains('hidden')) throw new Error('Edit view should be hidden');
+    if (!elements['btn-copy-lyrics'].classList.contains('hidden')) throw new Error('Copy button should be hidden');
+    if (!elements['btn-edit-lyrics'].classList.contains('hidden')) throw new Error('Edit button should be hidden');
+
+    // Test 2: Transition to Read state when lyrics exist
+    const sampleLyrics = "A mighty fortress is our God,\\nA sword and shield victorious.";
+    activeModalHymn = { id: 656, lyrics: sampleLyrics };
+    updateLyricsModalUI(sampleLyrics);
+    if (elements['modal-lyrics-badge'].classList.contains('hidden')) throw new Error('Badge should be visible when lyrics present');
+    if (!elements['lyrics-empty-view'].classList.contains('hidden')) throw new Error('Empty view should be hidden');
+    if (elements['lyrics-read-view'].classList.contains('hidden')) throw new Error('Read view should be visible');
+    if (!elements['lyrics-edit-view'].classList.contains('hidden')) throw new Error('Edit view should be hidden');
+    if (elements['lyrics-text'].textContent !== sampleLyrics) throw new Error('Lyrics textContent should match sample');
+    if (elements['lyrics-textarea'].value !== sampleLyrics) throw new Error('Lyrics textarea value should match sample');
+    if (elements['btn-copy-lyrics'].classList.contains('hidden')) throw new Error('Copy button should be visible');
+    if (elements['btn-edit-lyrics'].classList.contains('hidden')) throw new Error('Edit button should be visible');
+    if (!elements['btn-save-lyrics'].classList.contains('hidden')) throw new Error('Save button should be hidden');
+    if (!elements['btn-cancel-lyrics'].classList.contains('hidden')) throw new Error('Cancel button should be hidden');
+
+    // Test 3: Transition to Edit state (enterLyricsEditMode)
+    enterLyricsEditMode();
+    if (!elements['tab-btn-lyrics'].classList.contains('active')) throw new Error('Lyrics tab should be active during edit');
+    if (elements['lyrics-edit-view'].classList.contains('hidden')) throw new Error('Edit view should be visible');
+    if (!elements['lyrics-read-view'].classList.contains('hidden')) throw new Error('Read view should be hidden during edit');
+    if (!elements['lyrics-empty-view'].classList.contains('hidden')) throw new Error('Empty view should be hidden during edit');
+    if (elements['btn-save-lyrics'].classList.contains('hidden')) throw new Error('Save button should be visible during edit');
+    if (elements['btn-cancel-lyrics'].classList.contains('hidden')) throw new Error('Cancel button should be visible during edit');
+    if (!elements['btn-copy-lyrics'].classList.contains('hidden')) throw new Error('Copy button should be hidden during edit');
+    if (!elements['btn-edit-lyrics'].classList.contains('hidden')) throw new Error('Edit button should be hidden during edit');
+    if (elements['lyrics-textarea'].value !== sampleLyrics) throw new Error('Textarea value should match active hymn lyrics');
+    if (!elements['lyrics-textarea'].focused) throw new Error('Textarea should be focused');
+
+    // Test 4: Cancel edit (cancelLyricsEdit) transitions back to Read view
+    cancelLyricsEdit();
+    if (!elements['lyrics-edit-view'].classList.contains('hidden')) throw new Error('Edit view should be hidden after cancel');
+    if (elements['lyrics-read-view'].classList.contains('hidden')) throw new Error('Read view should be restored after cancel');
+    if (!elements['lyrics-empty-view'].classList.contains('hidden')) throw new Error('Empty view should be hidden after cancel');
+    if (!elements['btn-save-lyrics'].classList.contains('hidden')) throw new Error('Save button should be hidden after cancel');
+    if (!elements['btn-cancel-lyrics'].classList.contains('hidden')) throw new Error('Cancel button should be hidden after cancel');
+    if (elements['btn-copy-lyrics'].classList.contains('hidden')) throw new Error('Copy button should be restored');
+    if (elements['btn-edit-lyrics'].classList.contains('hidden')) throw new Error('Edit button should be restored');
+
+    // Test 5: Close modal resets activeModalHymn, resets edit state, hides modal
+    elements['hymn-details-modal'].classList.remove('hidden');
+    enterLyricsEditMode();
+    closeHymnDetailsModal();
+    if (activeModalHymn !== null) throw new Error('activeModalHymn should be set to null on close');
+    if (!elements['hymn-details-modal'].classList.contains('hidden')) throw new Error('Modal should have hidden class on close');
+    if (!elements['lyrics-edit-view'].classList.contains('hidden')) throw new Error('Edit view should be hidden after close');
+
+    console.log("ALL_LIFECYCLE_TESTS_PASSED");
+    """
+    res = subprocess.run(["node", "-e", node_lifecycle_script], capture_output=True, text=True)
+    assert res.returncode == 0, f"Node lifecycle test failed: {res.stderr}\n{res.stdout}"
+    assert "ALL_LIFECYCLE_TESTS_PASSED" in res.stdout
+
+

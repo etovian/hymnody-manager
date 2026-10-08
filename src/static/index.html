@@ -195,11 +195,17 @@
         <div class="mobile-header">
           <h2 id="mobile-service-title" style="font-size: 1.5rem; font-weight: 800; color: white;">Sunday Worship Service</h2>
           <p id="mobile-service-subtitle" class="subtitle">Divine Service Setting Two</p>
-          <div class="mobile-header-controls" style="display: flex; gap: 8px; align-items: center; margin-top: 8px;">
-            <select id="mobile-service-select" class="mobile-service-select" aria-label="Select Worship Service" onchange="onMobileServiceSelectChanged(this.value)" style="flex: 1; margin: 0;"></select>
-            <button id="btn-mobile-mode-toggle" class="btn btn-emerald btn-preservice-pill" onclick="toggleMobileUiMode()" style="white-space: nowrap; padding: 10px 14px; font-weight: 700; border-radius: 8px; font-size: 0.85rem;">
-              📜 Full Service
+          <div class="mobile-header-controls">
+            <button id="btn-mobile-services-explorer" class="btn btn-secondary mobile-header-btn" onclick="openServicesExplorer()" aria-label="Open Services Explorer">
+              📂 Services
             </button>
+            <button id="btn-mobile-mode-toggle" class="btn btn-emerald mobile-header-btn" onclick="toggleMobileUiMode()" aria-label="Toggle Liturgy or Hymns Only Mode">
+              📜 Liturgy
+            </button>
+            <button id="btn-mobile-playback-mode" class="btn btn-slate mobile-header-btn" onclick="cyclePlaybackMode()" aria-label="Cycle Playback Mode">
+              ⏹ Single Track
+            </button>
+            <select id="mobile-service-select" class="mobile-service-select hidden" style="display: none;" aria-hidden="true"></select>
           </div>
         </div>
 
@@ -302,24 +308,65 @@
           <!-- Warning Banner for Hymns Not in Printed Hymnal -->
           <div id="modal-warning-banner" class="modal-warning-banner hidden"></div>
 
-          <!-- Metadata Bar -->
-          <div id="modal-metadata-bar" style="display: flex; gap: 8px; flex-wrap: wrap; background: #0f172a; padding: 10px 12px; border-radius: 8px; border: 1px solid #334155;">
-            <!-- Dynamically injected badges -->
+          <!-- Modal Tabs -->
+          <div class="modal-tabs" role="tablist" style="display: flex; gap: 8px; border-bottom: 1px solid #334155; padding-bottom: 8px; margin-bottom: 4px;">
+            <button type="button" id="tab-btn-info" class="modal-tab-btn active" role="tab" aria-selected="true" aria-controls="modal-tab-info-content" onclick="switchHymnModalTab('info')">Info & History</button>
+            <button type="button" id="tab-btn-lyrics" class="modal-tab-btn" role="tab" aria-selected="false" aria-controls="modal-tab-lyrics-content" onclick="switchHymnModalTab('lyrics')">
+              Lyrics <span id="modal-lyrics-badge" class="badge-dot hidden" title="Lyrics available"></span>
+            </button>
           </div>
 
-          <!-- Usage History Section -->
-          <div>
-            <h4 id="modal-history-heading" style="font-size: 0.95rem; font-weight: 700; color: #e2e8f0; margin-bottom: 8px;">Service Usage</h4>
-            <div id="modal-history-container" style="background: #0f172a; border-radius: 8px; border: 1px solid #334155; overflow-x: auto;">
-              <!-- Dynamically injected table or empty state -->
+          <!-- Info & History Tab Content -->
+          <div id="modal-tab-info-content" class="modal-tab-pane" role="tabpanel" aria-labelledby="tab-btn-info" style="display: flex; flex-direction: column; gap: 16px;">
+            <!-- Metadata Bar -->
+            <div id="modal-metadata-bar" style="display: flex; gap: 8px; flex-wrap: wrap; background: #0f172a; padding: 10px 12px; border-radius: 8px; border: 1px solid #334155;">
+              <!-- Dynamically injected badges -->
+            </div>
+
+            <!-- Usage History Section -->
+            <div>
+              <h4 id="modal-history-heading" style="font-size: 0.95rem; font-weight: 700; color: #e2e8f0; margin-bottom: 8px;">Service Usage</h4>
+              <div id="modal-history-container" style="background: #0f172a; border-radius: 8px; border: 1px solid #334155; overflow-x: auto;">
+                <!-- Dynamically injected table or empty state -->
+              </div>
+            </div>
+
+            <!-- Sibling Hymns Section -->
+            <div>
+              <h4 id="modal-tune-heading" style="font-size: 0.95rem; font-weight: 700; color: #e2e8f0; margin-bottom: 8px;">Other Hymns Sharing This Tune</h4>
+              <div id="modal-siblings-container" style="display: flex; flex-direction: column; gap: 8px;">
+                <!-- Dynamically injected sibling cards or empty state -->
+              </div>
             </div>
           </div>
 
-          <!-- Sibling Hymns Section -->
-          <div>
-            <h4 id="modal-tune-heading" style="font-size: 0.95rem; font-weight: 700; color: #e2e8f0; margin-bottom: 8px;">Other Hymns Sharing This Tune</h4>
-            <div id="modal-siblings-container" style="display: flex; flex-direction: column; gap: 8px;">
-              <!-- Dynamically injected sibling cards or empty state -->
+          <!-- Lyrics Tab Content -->
+          <div id="modal-tab-lyrics-content" class="modal-tab-pane hidden" role="tabpanel" aria-labelledby="tab-btn-lyrics" style="display: flex; flex-direction: column; gap: 12px;">
+            <!-- Lyrics Toolbar -->
+            <div class="lyrics-toolbar" style="display: flex; justify-content: space-between; align-items: center; background: #0f172a; padding: 8px 12px; border-radius: 8px; border: 1px solid #334155;">
+              <div style="font-size: 0.9rem; font-weight: 600; color: #cbd5e1;">Hymn Lyrics</div>
+              <div style="display: flex; gap: 8px;">
+                <button type="button" id="btn-copy-lyrics" class="btn btn-secondary btn-sm" onclick="copyHymnLyricsToClipboard()" title="Copy lyrics to clipboard">📋 Copy</button>
+                <button type="button" id="btn-edit-lyrics" class="btn btn-primary btn-sm" onclick="enterLyricsEditMode()" title="Edit lyrics">✏️ Edit</button>
+                <button type="button" id="btn-save-lyrics" class="btn btn-emerald btn-sm hidden" onclick="saveHymnLyrics()" title="Save lyrics">💾 Save</button>
+                <button type="button" id="btn-cancel-lyrics" class="btn btn-secondary btn-sm hidden" onclick="cancelLyricsEdit()" title="Cancel changes">✕ Cancel</button>
+              </div>
+            </div>
+
+            <!-- Read View -->
+            <div id="lyrics-read-view" class="lyrics-card" style="background: #0f172a; border-radius: 8px; border: 1px solid #334155; padding: 16px; max-height: 400px; overflow-y: auto;">
+              <div id="lyrics-text" class="lyrics-text-display"></div>
+            </div>
+
+            <!-- Edit View -->
+            <div id="lyrics-edit-view" class="hidden" style="display: flex; flex-direction: column; gap: 8px;">
+              <textarea id="lyrics-textarea" class="lyrics-textarea" rows="14" placeholder="Paste or type hymn lyrics here (separate stanzas with blank lines)..."></textarea>
+            </div>
+
+            <!-- Empty View -->
+            <div id="lyrics-empty-view" class="hidden" style="background: #0f172a; border-radius: 8px; border: 1px dashed #475569; padding: 32px 16px; text-align: center;">
+              <p style="color: #94a3b8; margin: 0 0 12px 0; font-size: 0.95rem;">No lyrics recorded for this hymn yet.</p>
+              <button type="button" id="btn-add-lyrics" class="btn btn-primary btn-sm" onclick="enterLyricsEditMode()">+ Add Lyrics</button>
             </div>
           </div>
         </div>

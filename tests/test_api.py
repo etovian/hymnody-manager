@@ -346,3 +346,50 @@ def test_api_hymns_in_printed_hymnal_flag(client):
             elif h.get("hymn_number") and int(h["hymn_number"]) <= 966:
                 assert h["in_printed_hymnal"] is True
 
+
+def test_lyrics_api_endpoints(tmp_path):
+    from src.database import init_db, save_hymns
+    db_path = str(tmp_path / "lyrics_api_test.db")
+    os.environ["HYMNODY_DB_PATH"] = db_path
+    init_db(db_path)
+
+    save_hymns([{
+        'hymn_number': 331,
+        'title': 'The advent of our King',
+        'disc_number': 1,
+        'track_number': 1,
+        'album': 'The Concordia Organist',
+        'artist': 'Concordia Publishing House',
+        'year': 2009,
+        'file_path': 'sample.m4a',
+        'liturgical_season': 'Advent'
+    }], db_path)
+
+    # 1. GET hymn should include lyrics (null initially)
+    res = client.get("/api/hymns/1")
+    assert res.status_code == 200
+    assert "lyrics" in res.json()
+    assert res.json()["lyrics"] is None
+
+    # 2. PUT hymn lyrics
+    lyrics_content = "1. The advent of our King\n\n2. The everlasting Son"
+    put_res = client.put("/api/hymns/1/lyrics", json={"lyrics": lyrics_content})
+    assert put_res.status_code == 200
+    body = put_res.json()
+    assert body["status"] == "success"
+    assert body["hymn"]["lyrics"] == lyrics_content
+
+    # 3. GET again to ensure persistence
+    res2 = client.get("/api/hymns/1")
+    assert res2.status_code == 200
+    assert res2.json()["lyrics"] == lyrics_content
+
+    # 4. Clear lyrics with whitespace/empty
+    clear_res = client.put("/api/hymns/1/lyrics", json={"lyrics": "   "})
+    assert clear_res.status_code == 200
+    assert clear_res.json()["hymn"]["lyrics"] is None
+
+    # 5. Non-existent hymn should 404
+    bad_res = client.put("/api/hymns/99999/lyrics", json={"lyrics": "Hello"})
+    assert bad_res.status_code == 404
+

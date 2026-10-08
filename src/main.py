@@ -1,13 +1,15 @@
 import json
 import os
 from contextlib import asynccontextmanager
+from typing import Optional
+from pydantic import BaseModel
 from fastapi import FastAPI, HTTPException, Request, Response, Body
 from fastapi.responses import StreamingResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
 
 from src.database import (
     init_db, save_hymns, search_hymns, get_hymn_by_id,
-    get_hymn_usage_history, get_hymns_sharing_tune
+    get_hymn_usage_history, get_hymns_sharing_tune, update_hymn_lyrics
 )
 from src.scanner import scan_hymns_directory
 from src.services import (
@@ -71,6 +73,20 @@ def api_get_hymn(hymn_id: int):
         if hymn.get("tune_id") else []
     )
     return hymn
+
+class HymnLyricsUpdate(BaseModel):
+    lyrics: Optional[str] = None
+
+@app.put("/api/hymns/{hymn_id}/lyrics")
+def api_update_hymn_lyrics(hymn_id: int, payload: HymnLyricsUpdate):
+    db_path = get_db_path()
+    hymn = get_hymn_by_id(hymn_id, db_path=db_path)
+    if not hymn:
+        raise HTTPException(status_code=404, detail="Hymn not found")
+    cleaned = payload.lyrics.strip() if payload.lyrics and payload.lyrics.strip() else None
+    update_hymn_lyrics(hymn_id, cleaned, db_path=db_path)
+    updated = get_hymn_by_id(hymn_id, db_path=db_path)
+    return {"status": "success", "hymn": updated}
 
 @app.get("/api/hymns/{hymn_id}/audio")
 def stream_hymn_audio(hymn_id: int, request: Request):

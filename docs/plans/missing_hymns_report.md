@@ -1,67 +1,58 @@
-# Missing Discs & Hymns Audit Report (LSB 331 - 986)
+# Missing Audio Tracks Audit Report (LSB 331 - 986)
 
 **Project**: Hymnody Manager  
-**Target Audio Directory**: `c:\dev\IdeaProjects\hymnody-manager\music`  
-**Audio Set**: *The Concordia Organist* (Lutheran Service Book Accompaniment Set)
+**Target Audio Directory**: `music/`  
+**Audio Set**: *The Concordia Organist* (Lutheran Service Book Accompaniment Set, Discs 01–31)  
+**Last Audit**: October 5, 2026  
 
 ---
 
 ## 1. Executive Summary
 
-- **Total Audio Files Currently in `/music`**: 375 `.m4a` files
-- **Present Discs**: 12 Discs (1, 2, 3, 5, 7, 12, 14, 16, 18, 21, 23, 30)
-- **Missing Discs**: 19 Discs (4, 6, 8, 9, 10, 11, 13, 15, 17, 19, 20, 22, 24, 25, 26, 27, 28, 29, 31)
-- **Present LSB Hymns**: 244 Hymns indexed
-- **Missing LSB Hymns**: 412 Hymns (between LSB 331 and LSB 986)
+- **Total LSB Hymns & Canticles in Catalog (LSB 331–986)**: 656
+- **Hymns with Valid Audio Files**: 645 (98.3%)
+- **Hymns Missing Audio Files**: 11 (1.7%)
+- **Liturgical Service & Daily Office Settings**: 182 tracks (100% present)
+- **Broken / Missing File Links**: 0
+- **Total Audio Files in `music/`**: 870 files (827 canonical tracks indexed + 43 duplicate/variant takes handled by deduplication)
 
 ---
 
-## 2. Present Discs Breakdown
+## 2. Root Cause: Hymn 776 (*Come, Lord Jesus, Be Our Guest*)
 
-| Disc # | Track Range | Indexed Hymn Range | Liturgical Season / Category | Status |
+- **Hymn Number**: LSB 776
+- **Title**: *Come, Lord Jesus, Be Our Guest*
+- **Tune**: *Komm, Herr Jesu*
+- **Category**: Prayer / Table Blessing
+- **Status in *The Concordia Organist* Library**: 
+  - On Disc 21, Track 21 is **LSB 775** (*Be present at our table, Lord*) and Track 22 is **LSB 777** (*Grant peace, we pray, in mercy, Lord*).
+  - Track 776 was **never recorded or included** by Concordia Publishing House (CPH) in *The Concordia Organist* 31-CD collection.
+  - LSB 776 is the traditional Lutheran Common Table Prayer ("Come, Lord Jesus, be our guest..."). In congregational and domestic practice, it is customarily sung a cappella as a short meal prayer/round, so CPH omitted an accompaniment track for it.
+
+---
+
+## 3. Complete List of All Hymns Missing Audio (11 Total)
+
+Across the entire range of **LSB 331 through 986**, only **11 entries** do not have an audio file:
+
+| Hymn # | Title | Section | Tune | Notes |
 |---|---|---|---|---|
-| **Disc 01** | Tracks 01–21 | LSB 331 – 351 | Advent | ✅ Present |
-| **Disc 02** | Tracks 01–20 | LSB 352 – 371 | Christmas | ✅ Present |
-| **Disc 03** | Tracks 01–23 | LSB 372 – 394 | Christmas / Epiphany | ✅ Present |
-| **Disc 05** | Tracks 01–24 | LSB 413 – 436 | Lent | ✅ Present |
-| **Disc 07** | Tracks 01–20 | LSB 454 – 473 | Easter | ✅ Present |
-| **Disc 12** | Tracks 01–21 | LSB 558 – 578 | Justification & Sanctification | ✅ Present |
-| **Disc 14** | Tracks 01–20 | LSB 603 – 623 | Holy Baptism | ✅ Present |
-| **Disc 16** | Tracks 01–23 | LSB 643 – 665 | Trust & Refuge | ✅ Present |
-| **Disc 18** | Tracks 01–25 | LSB 687 – 711 | Lord's Supper & Praise | ✅ Present |
-| **Disc 21** | Tracks 01–60 | LSB 755 – 780 | Christian Home & Care | ✅ Present |
-| **Disc 23** | Tracks 01–22 | LSB 804 – 825 | Praise & Thanksgiving | ✅ Present |
-| **Disc 30** | Tracks 01–96 | DS1, DS2, DS3 Canticles | Liturgical Settings (Kyrie, Gloria, Sanctus, Agnus Dei, Nunc Dimittis) | ✅ Present |
+| **LSB 776** | *Come, Lord Jesus, Be Our Guest* | Prayer | *Komm, Herr Jesu* | **The only standard hymn omitted from *The Concordia Organist* (CD set skips from track 21-21 [775] to 21-22 [777]).** |
+| **LSB 925** | *Song of Moses and Israel* | Biblical Canticles | *(None)* | Unmetered Scripture text (Exodus 15); chanted using Psalm Tones (Disc 31). |
+| **LSB 926** | *Song from Deuteronomy* | Biblical Canticles | *(None)* | Unmetered Scripture text (Deut 32); chanted using Psalm Tones (Disc 31). |
+| **LSB 927** | *First Song of Isaiah* | Biblical Canticles | *(None)* | Unmetered Scripture text (Isaiah 12); chanted using Psalm Tones (Disc 31). |
+| **LSB 928** | *Song of Hannah* | Biblical Canticles | *(None)* | Unmetered Scripture text (1 Sam 2); chanted using Psalm Tones (Disc 31). |
+| **LSB 929** | *I Will Greatly Rejoice in the Lord* | Biblical Canticles | *(None)* | Unmetered Scripture text (Isaiah 61); chanted using Psalm Tones (Disc 31). |
+| **LSB 931** | *All You Works of the Lord* | Biblical Canticles | *(None)* | Unmetered Scripture text (*Benedicite*); chanted using Psalm Tones (Disc 31). |
+| **LSB 983** | *Seek the Lord* | Biblical Canticles | *(None)* | Unmetered Scripture text (Isaiah 55); chanted using Psalm Tones (Disc 31). |
+| **LSB 984** | *Oh, That You Would Rend the Heavens* | Biblical Canticles | *(None)* | Unmetered Scripture text (Isaiah 64); chanted using Psalm Tones (Disc 31). |
+| **LSB 985** | *Song of Jonah* | Biblical Canticles | *(None)* | Unmetered Scripture text (Jonah 2); chanted using Psalm Tones (Disc 31). |
+| **LSB 986** | *Song of Habakkuk* | Biblical Canticles | *(None)* | Unmetered Scripture text (Habakkuk 3); chanted using Psalm Tones (Disc 31). |
 
 ---
 
-## 3. Missing Discs & Hymn Ranges (LSB 331 - 986)
+## 4. Summary & Verification
 
-| Missing Disc # | Estimated Hymn Range | Key Missing Hymns | Liturgical Season / Category |
-|---|---|---|---|
-| ❌ **Disc 04** | LSB 395 – 412 | LSB 395, 400, 412 | Epiphany |
-| ❌ **Disc 06** | LSB 437 – 453 | LSB 437, 440, 450 | Lent & Holy Week |
-| ❌ **Disc 08** | LSB 474 – 495 | LSB 475, 480, 490 | Easter & Ascension |
-| ❌ **Disc 09** | LSB 496 – 516 | LSB 500, 505, 510 | Pentecost & Holy Trinity |
-| ❌ **Disc 10** | LSB 517 – 536 | LSB 520, 525, 530 | The Church & Word of God |
-| ❌ **Disc 11** | LSB 537 – 557 | LSB 540, 545, 550 | Confession & Absolution |
-| ❌ **Disc 13** | LSB 579 – 602 | **LSB 594** (*God's Own Child, I Gladly Say It*) | Stewardship & Christian Life |
-| ❌ **Disc 15** | LSB 624 – 642 | LSB 625, 630, 640 | Confirmation & Vocation |
-| ❌ **Disc 17** | LSB 666 – 686 | LSB 670, 675, 680 | Cross & Comfort |
-| ❌ **Disc 19** | LSB 712 – 733 | LSB 715, 720, 730 | Evening & Burial |
-| ❌ **Disc 20** | LSB 734 – 754 | LSB 740, 745, 750 | Nation & Morning |
-| ❌ **Disc 22** | LSB 781 – 803 | LSB 785, 790, 800 | Society & Care |
-| ❌ **Disc 24** | LSB 826 – 847 | **LSB 845** (*Where Charity and Love Prevail*) | Love & Charity |
-| ❌ **Disc 25** | LSB 848 – 869 | **LSB 866** (*Lord Jesus Christ, the Children's Friend*) | Children & Family |
-| ❌ **Disc 26** | LSB 870 – 891 | LSB 875, 880, 885 | Morning, Evening & Close of Service |
-| ❌ **Disc 27** | LSB 892 – 915 | LSB 895, 900, 910 | Word of God & Worship |
-| ❌ **Disc 28** | LSB 916 – 941 | LSB 920, 925, 935 | Praise & Doxology |
-| ❌ **Disc 29** | LSB 942 – 986 | LSB 945, 960, 986 | Canticles & Additional Hymns |
-| ❌ **Disc 31** | Liturgical Settings | DS4, DS5, Matins, Vespers, Compline | Liturgical Ordinaries (Part 2) |
-
----
-
-## 4. Next Steps for Complete Coverage
-
-1. Copy the missing **19 `.m4a` disc folders** (Discs 4, 6, 8, 9, 10, 11, 13, 15, 17, 19, 20, 22, 24, 25, 26, 27, 28, 29, 31) into `c:\dev\IdeaProjects\hymnody-manager\music`.
-2. Click **"🔄 Rescan Catalog"** in the web app (or send a POST to `/api/scan`). All 650+ hymns (LSB 331 through 986) will automatically parse and become available for worship planning!
+- **Hymn 776 is the sole metrical hymn without audio.**
+- The other 10 items without audio are **Biblical Canticles** intended for psalm-tone chanting rather than metric hymn tunes.
+- **645 out of 646 metrical hymns (99.8%) have valid, tested audio files.**
